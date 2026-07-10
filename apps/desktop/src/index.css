@@ -1,0 +1,202 @@
+@import "@fontsource/geist-sans/400.css";
+@import "@fontsource/geist-sans/500.css";
+@import "@fontsource/geist-sans/600.css";
+@import "@fontsource/newsreader/400.css";
+@import "@fontsource/newsreader/600.css";
+@import "@fontsource/ibm-plex-mono/400.css";
+@import "@fontsource/ibm-plex-mono/500.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root,
+[data-theme="light"] {
+  /* Paper base, neutralised off the AI-default "warm cream" (old #f7f5ef): a
+     cooler, quieter off-white so the app stops reading as the templated
+     beige-and-burnt-orange pairing. Surfaces stay near-white. */
+  --bg: #f3f4f2;
+  --surface: #ffffff;
+  --surface-2: #ebece8;
+  --border: #e3e4df;
+  --border-faint: #eceeea;
+  --text: #23261f;
+  /* Neutral secondary grey (was warm #7a756a), still clearing WCAG AA
+     (~4.6:1 on the paper base). */
+  --muted: #6e716a;
+  /* Accent = the brand terracotta from the Praxis logo (#c06a3e), so the mark
+     and the UI accent read as one color. Distinct from ok-green / link-blue /
+     error-red. Where it carries small text (a chip), it is paired with medium
+     weight to hold contrast. */
+  --accent: #c06a3e;
+  --accent-fg: #ffffff;
+  /* Brand ink (the logo's dark node / app-icon ground) — a second brand color
+     for deliberate brand moments, not a general-purpose token. */
+  --ink: #1e2a3a;
+  --link: #2a6fdb;
+  --warn: #c98a2b;
+  --ok: #4b8b5b;
+  --error: #c0564b;
+  /* Code syntax highlighting — dedicated hues (not reused from the state
+     colors above) so keywords/strings never look like a warning or error. */
+  --syn-keyword: #7a5ea8;
+  --syn-string: #8a6d3a;
+  /* Chart design system (P1-5) — validated categorical hues + chart chrome,
+     the single source of truth shared with @ai4s/shared and the matplotlib
+     style. Light surface = --surface (#ffffff). */
+  --series-1: #2a78d6;
+  --series-2: #1baf7a;
+  --series-3: #eda100;
+  --series-4: #008300;
+  --series-5: #4a3aa7;
+  --series-6: #e34948;
+  --series-7: #e87ba4;
+  --series-8: #eb6834;
+  --chart-grid: #e7e3da;
+  --chart-axis: #cbc6bb;
+}
+
+[data-theme="dark"] {
+  --bg: #16151a;
+  --surface: #1e1d24;
+  --surface-2: #26252d;
+  --border: #33313c;
+  --border-faint: #25242b;
+  --text: #e8eae3;
+  --muted: #969a92;
+  /* Lifted terracotta for dark surfaces, echoing the logo's reversed node
+     (#e0a06a) so the brand color stays recognisable in dark mode. */
+  --accent: #d98f63;
+  --accent-fg: #16151a;
+  --ink: #d7dee8;
+  --link: #7aa5f0;
+  --warn: #d7a24a;
+  --ok: #6bb07d;
+  --error: #d47a70;
+  --syn-keyword: #b096d9;
+  --syn-string: #d1af74;
+  /* Same hues stepped for the dark chart surface (--surface #1e1d24). */
+  --series-1: #3987e5;
+  --series-2: #199e70;
+  --series-3: #c98500;
+  --series-4: #008300;
+  --series-5: #9085e9;
+  --series-6: #e66767;
+  --series-7: #d55181;
+  --series-8: #d95926;
+  --chart-grid: #33313c;
+  --chart-axis: #4a4753;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Geist Sans", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* One icon stroke weight across the app (lucide defaults to 2, some call sites
+   set 1.75). CSS wins over the presentation attribute, so this normalizes every
+   glyph to the lighter, more refined 1.75 without touching call sites. */
+svg.lucide {
+  stroke-width: 1.75;
+}
+
+/* Thin, calm scrollbars to match the paper aesthetic. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+/* Streamed cards (live coding feed) rise in as they arrive — motion signals
+   "a new segment was just coded", collapses to static under reduced motion. */
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.card-in {
+  animation: card-in 320ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .card-in {
+    animation: none;
+  }
+}
+
+/* Working-status shimmer: a soft accent wave sweeps through the muted status
+   text while the agent runs — the page's only moving color, so "something is
+   working" reads at a glance (the way Claude Code's status line shimmers).
+   Collapses to static muted text under reduced motion. */
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+.shimmer-text {
+  background-image: linear-gradient(
+    90deg,
+    var(--muted) 0%,
+    var(--muted) 35%,
+    var(--accent) 50%,
+    var(--muted) 65%,
+    var(--muted) 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer 5s linear infinite;
+  /* Isolate the animation in its own compositing layer. Without this,
+     background-clip:text + an infinite background-position animation
+     invalidates the WHOLE scroller every frame in WKWebView — while a turn
+     streams, scrolled-in history paints late and reads as blank stretches. */
+  transform: translateZ(0);
+  will-change: background-position;
+}
+@media (prefers-reduced-motion: reduce) {
+  .shimmer-text {
+    animation: none;
+    background: none;
+    color: var(--muted);
+  }
+}
+
+/* Sidebar expand button appears after the collapse animation settles. */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.fade-in {
+  animation: fade-in 150ms ease-out 150ms backwards;
+}

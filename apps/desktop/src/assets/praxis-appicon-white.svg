@@ -1,0 +1,18 @@
+<!-- macOS app icon: the squircle body is 824x824 centered on a 1024 canvas
+     (Apple's icon grid — the ~10% transparent margin is what makes it sit the
+     same size as neighbouring dock icons). White ground, hairline edge, the
+     Praxis mark (ink book, terracotta apex). -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="#ffffff" stroke="#1e2a3a" stroke-opacity="0.08" stroke-width="4"/>
+  <g transform="translate(100,100) scale(8.24)">
+    <g transform="translate(17,17) scale(0.66)">
+      <path d="M48 74 L18 66 L18 46 L48 55 Z" fill="#1e2a3a"/>
+      <path d="M52 74 L82 66 L82 46 L52 55 Z" fill="#1e2a3a"/>
+      <path d="M50 50 L36 30 M50 50 L50 22 M50 50 L64 32" stroke="#1e2a3a" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+      <circle cx="50" cy="22" r="5.5" fill="#c06a3e"/>
+      <circle cx="36" cy="30" r="4" fill="#1e2a3a"/>
+      <circle cx="64" cy="32" r="4" fill="#1e2a3a"/>
+      <circle cx="50" cy="50" r="3" fill="#1e2a3a"/>
+    </g>
+  </g>
+</svg>

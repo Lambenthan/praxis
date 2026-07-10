@@ -1,0 +1,173 @@
+/** zh entries for app/routes + app/layout. Key = English source string. */
+export const routesZh: Record<string, string> = {
+  Language: "语言",
+  Appearance: "外观",
+
+  // ModelPicker.tsx
+  "Search models…": "搜索模型…",
+  "No matches.": "无匹配结果。",
+
+  // AppShell.tsx / LiveSessionPage.tsx (shared strings)
+  "Expand sidebar": "展开侧边栏",
+  Files: "文件",
+  Connect: "连接",
+
+  // FilesPage.tsx
+  "Loading…": "加载中…",
+  "This folder is empty.": "此文件夹为空。",
+  "The file explorer is available in the desktop app.": "文件浏览器仅在桌面应用中可用。",
+  "Select a file to preview it here.": "选择一个文件在此预览。",
+  "this session's folder": "当前会话的文件夹",
+  "Close files": "关闭文件",
+
+  // LiveSessionPage.tsx
+  "Browse this session's folder beside the chat": "在对话旁浏览当前会话的文件夹",
+  Open: "打开",
+  "the agent works on this notebook in this session": "智能体在本次会话中处理此笔记本",
+  "OpenCode runtime": "OpenCode 运行时",
+  "The desktop app runs a bundled OpenCode automatically. In the browser, start one with":
+    "桌面应用会自动运行内置的 OpenCode。在浏览器中使用时，请先用",
+  "and connect.": "启动一个，然后再连接。",
+  "Paused — the agent needs your answer below": "已暂停——智能体需要你在下方作答",
+  "Starting the session in its folder…": "正在其文件夹中启动会话…",
+  "Working…": "处理中…",
+  "Waiting for the reply…": "等待回复…",
+  "Ask anything": "有什么想问的？",
+  "Connect to chat": "连接后开始对话",
+
+  // SessionPage.tsx
+  "Session not found": "未找到该会话",
+  "Pick a session from the sidebar.": "请从侧边栏选择一个会话。",
+
+  // NotebooksPage.tsx
+  Notebooks: "笔记本",
+  "New notebook": "新建笔记本",
+  "Python notebook": "Python 笔记本",
+  "R notebook": "R 笔记本",
+  "Could not create notebook:": "无法创建笔记本：",
+  "All Jupyter notebooks across your session folders, newest first. Cells run on the local Python or R kernel in the notebook's own folder; the agent works on the same files.":
+    "所有会话文件夹中的 Jupyter 笔记本，按最新排列。单元格在笔记本所在文件夹的本地 Python 或 R 内核中运行；智能体处理的是同一批文件。",
+  "No notebooks yet. Create one, or ask the agent to produce one.":
+    "还没有笔记本。新建一个，或者让智能体来生成。",
+  "Notebooks are available in the desktop app.": "笔记本仅在桌面应用中可用。",
+
+  // SkillsPage.tsx
+  "Skills & Agents": "技能与智能体",
+  "Loaded live from the OpenCode runtime — the bundled ai4s-skills pack plus anything under":
+    "实时从 OpenCode 运行时加载——包括内置的 ai4s-skills 包，以及",
+  "in your workspace.": "工作区中的其他内容。",
+  "Install a skill": "安装技能",
+  "Paste a skill (Markdown) or a GitHub URL — the agent installs it into .opencode/skills/":
+    "粘贴一个技能(Markdown)或 GitHub URL——智能体会将其安装到 .opencode/skills/",
+  "Starting…": "启动中…",
+  "Install with agent": "让智能体安装",
+  "Opens a session and asks the agent to add it (customize-opencode).":
+    "会开启一个会话，让智能体来添加它(customize-opencode)。",
+  "Connect the runtime first.": "请先连接运行时。",
+  "Scientific environment": "科研环境",
+  "Environment detection runs in the desktop app.": "环境检测仅在桌面应用中运行。",
+  "OpenCode runs code with whatever is installed here (e.g. Python via its shell tool). Python/R/Jupyter are not bundled; install them or a Science Pack to enable analysis.":
+    "OpenCode 使用本机已安装的环境来运行代码(例如通过其 shell 工具调用 Python)。Python/R/Jupyter 并未内置；请自行安装，或安装一个 Science Pack 以启用分析功能。",
+  Agents: "智能体",
+  "No agents reported.": "未上报任何智能体。",
+  Skills: "技能",
+  "No skills loaded yet.": "尚未加载任何技能。",
+  "Connect the runtime to list the skills and agents it has loaded.":
+    "连接运行时后即可列出已加载的技能与智能体。",
+  found: "已找到",
+  "not found": "未找到",
+  "built-in": "内置",
+  project: "项目",
+  user: "用户",
+
+  // SettingsPage.tsx
+  "New sessions will be created in this folder.": "新会话将创建于此文件夹。",
+  "Could not set the folder:": "无法设置该文件夹：",
+  "Could not set the model": "无法设置模型",
+  "Default model set to": "默认模型已设为",
+  "Could not save the key": "无法保存密钥",
+  connected: "已连接",
+  "Could not start the login": "无法开始登录",
+  "Login did not complete:": "登录未完成：",
+  "Login did not complete": "登录未完成",
+  "Could not remove": "无法移除",
+  removed: "已移除",
+  "Could not add the endpoint": "无法添加端点",
+  "Name, base URL and at least one model id are required.": "名称、Base URL 及至少一个模型 id 均为必填。",
+  "added — its models are now selectable above.": "已添加——其模型现已可在上方选择。",
+  "Could not add the MCP server": "无法添加 MCP 服务器",
+  "Name and command/URL are required.": "名称与命令/URL 均为必填。",
+  "MCP server": "MCP 服务器",
+  added: "已添加",
+  "Setting up Jupyter — first run downloads a few hundred MB, please wait…":
+    "正在配置 Jupyter——首次运行会下载数百 MB，请稍候…",
+  "Jupyter MCP enabled — the agent can now drive notebooks.": "Jupyter MCP 已启用——智能体现在可以操作笔记本。",
+  "Jupyter setup failed:": "Jupyter 配置失败：",
+  "Setting up": "正在配置",
+  "first run downloads a managed Python, please wait…": "首次运行会下载一个托管的 Python，请稍候…",
+  "enabled — the agent can now use it from chat.": "已启用——智能体现在可以在对话中使用它。",
+  "setup failed:": "配置失败：",
+  "Could not remove the MCP server": "无法移除该 MCP 服务器",
+  "Import failed": "导入失败",
+  "No OpenCode CLI login found on this machine.": "在本机未找到 OpenCode CLI 登录信息。",
+  "Imported your OpenCode CLI login.": "已导入你的 OpenCode CLI 登录信息。",
+
+  Settings: "设置",
+  "Everything here configures the bundled OpenCode runtime — one config, no copies.":
+    "此页面配置的是内置的 OpenCode 运行时——只有一份配置，没有副本。",
+  "Agent runtime": "智能体运行时",
+  "opencode serve, driven over its HTTP + SSE API": "opencode serve，通过其 HTTP + SSE API 驱动",
+  Disconnect: "断开连接",
+  Model: "模型",
+  "Providers below supply the models you can pick here": "下方的提供方提供了你可以在此选择的模型",
+  "Connect the runtime to configure models.": "请先连接运行时以配置模型。",
+  "Not set — pick a default model": "未设置——请选择一个默认模型",
+  Providers: "提供方",
+  model: "个模型",
+  models: "个模型",
+  "built-in · free": "内置 · 免费",
+  "Remove this provider's credentials/config": "移除该提供方的凭据/配置",
+  "Connect a provider — search": "连接一个提供方 — 搜索",
+  "API key": "API 密钥",
+  Save: "保存",
+  "Paste the code from the browser": "粘贴浏览器中的验证码",
+  "Complete login": "完成登录",
+  "Waiting for you to finish in the browser…": "等待你在浏览器中完成…",
+  Cancel: "取消",
+  "Custom endpoint": "自定义端点",
+  "self-hosted · local Ollama · OpenAI/Anthropic-compatible": "自托管 · 本地 Ollama · OpenAI/Anthropic 兼容",
+  "Name — e.g. Ollama, My DeepSeek gateway": "名称 — 例如 Ollama、My DeepSeek gateway",
+  "OpenAI-compatible": "OpenAI 兼容",
+  "Anthropic-compatible": "Anthropic 兼容",
+  "Base URL — Ollama: http://127.0.0.1:11434/v1": "Base URL — Ollama: http://127.0.0.1:11434/v1",
+  "API key — optional, Ollama needs none": "API 密钥 — 可选，Ollama 无需密钥",
+  "Model ids, comma-separated": "模型 id，以逗号分隔",
+  "Add endpoint": "添加端点",
+  "Already use the OpenCode CLI? Import its login": "已经在用 OpenCode CLI？导入其登录信息",
+  "MCP servers": "MCP 服务器",
+  "Extra tools for the agent (Model Context Protocol) — e.g. a Jupyter or browser MCP":
+    "为智能体提供的额外工具(Model Context Protocol)——例如 Jupyter 或浏览器 MCP",
+  "Connect the runtime to configure MCP servers.": "请先连接运行时以配置 MCP 服务器。",
+  "open source": "开源",
+  "Enter the API key first": "请先输入 API 密钥",
+  "Setting up…": "配置中…",
+  Enable: "启用",
+  "free key": "免费密钥",
+  "Get a free key": "获取免费密钥",
+  "lets the agent drive real notebooks · isolated env, ~300 MB on first run":
+    "让智能体操作真实的笔记本 · 独立环境，首次运行约 300 MB",
+  "Set up & enable": "配置并启用",
+  Remove: "移除",
+  "Name — e.g. jupyter, playwright": "名称 — 例如 jupyter、playwright",
+  local: "本地",
+  remote: "远程",
+  "Command — e.g. npx -y @playwright/mcp": "命令 — 例如 npx -y @playwright/mcp",
+  "URL — e.g. https://example.com/mcp": "URL — 例如 https://example.com/mcp",
+  "Add server": "添加服务器",
+  Workspace: "工作区",
+  "Local-first — each session works in its own dated subfolder created here":
+    "本地优先——每个会话都在此创建的、以日期命名的独立子文件夹中工作",
+  "available in the desktop app": "仅在桌面应用中可用",
+  "Change…": "更改…",
+  Reveal: "在访达中显示",
+};

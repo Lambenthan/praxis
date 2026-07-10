@@ -1,0 +1,68 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Praxis",
+  "version": "0.1.2",
+  "identifier": "com.ai4s.workbench",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:5173",
+    "beforeDevCommand": "pnpm --filter @ai4s/desktop exec vite --port 5173 --strictPort",
+    "beforeBuildCommand": "pnpm --filter @ai4s/desktop build"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Praxis",
+        "width": 1440,
+        "height": 900,
+        "minWidth": 1000,
+        "minHeight": 640,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "trafficLightPosition": {
+          "x": 13,
+          "y": 22
+        }
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "externalBin": [
+      "binaries/opencode",
+      "binaries/uv"
+    ],
+    "macOS": {
+      "minimumSystemVersion": "13.0"
+    },
+    "resources": {
+      "../../../runtime/skills/external/ai4s-skills": "skills/",
+      "../../../runtime/skills/external/anthropic-skills": "skills-office/",
+      "../../../runtime/skills/core": "skills-core/",
+      "../../../runtime/agents": "agents/",
+      "../../../runtime/plugins": "plugins/",
+      "../../../runtime/rules": "rules/"
+    },
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://github.com/Lambenthan/praxis/releases/latest/download/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDIxQjAzQkE2MzQxMThENEUKUldST2pSRTBwanV3SWQrQkcydjBpaGwyVG1ITjhFRW8wR0xSbDNpeEFwSEhPNEpWaDRncnNMR2YK"
+    }
+  },
+  "mainBinaryName": "Praxis"
+}

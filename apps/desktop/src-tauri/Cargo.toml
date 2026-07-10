@@ -1,0 +1,26 @@
+[package]
+name = "ai4s-workbench"
+version = "0.1.2"
+description = "AI4S Workbench Desktop"
+authors = ["AI4S Workbench contributors"]
+edition = "2021"
+
+[lib]
+name = "ai4s_workbench_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-shell = "2"
+tauri-plugin-single-instance = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri-plugin-dialog = "2"
+# Self-update (desktop only — this app ships macOS/Windows, never mobile).
+tauri-plugin-process = "2"
+tauri-plugin-updater = "2"
+getrandom = "0.4.3"
+opener = "0.8.5"

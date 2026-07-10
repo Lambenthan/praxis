@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Praxis — An AI workbench for social-science research</title>
+<meta name="description" content="A local-first, model-agnostic desktop app that turns a research question into submission-ready work. Your data stays on your machine — and you can read exactly how it is handled." />
+<!-- No external requests: no web fonts, no analytics, no trackers. Fitting for a
+     tool whose whole promise is that your data stays yours. -->
+<style>
+  :root{
+    --ink:#1e2a3a; --terracotta:#c06a3e; --paper:#f3f4f2; --surface:#ffffff;
+    --surface-2:#ebece8; --border:#e3e4df; --text:#23261f; --muted:#6b6e67;
+    --serif:"Newsreader","Iowan Old Style","Charter",Georgia,"Songti SC",serif;
+    --sans:-apple-system,"SF Pro Text","Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    --mono:"SF Mono","JetBrains Mono",ui-monospace,Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--paper);color:var(--text);font-family:var(--sans);
+    line-height:1.6;-webkit-font-smoothing:antialiased;font-feature-settings:"liga","kern"}
+  a{color:inherit}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+  h1,h2,h3{font-family:var(--serif);color:var(--ink);font-weight:600;letter-spacing:-.01em;line-height:1.15}
+
+  /* Nav */
+  nav{position:sticky;top:0;z-index:10;background:color-mix(in srgb,var(--paper) 88%,transparent);
+    backdrop-filter:saturate(1.2) blur(8px);border-bottom:1px solid var(--border)}
+  .nav-in{display:flex;align-items:center;gap:12px;height:60px}
+  .brand{display:flex;align-items:center;gap:10px;font-family:var(--serif);font-size:20px;
+    font-weight:600;color:var(--ink);text-decoration:none}
+  .brand svg{width:26px;height:26px}
+  .nav-sp{flex:1}
+  .nav-links{display:flex;gap:22px;align-items:center;font-size:14px;color:var(--muted)}
+  .nav-links a{text-decoration:none}
+  .nav-links a:hover{color:var(--ink)}
+  @media(max-width:640px){.nav-links a:not(.btn){display:none}}
+
+  .btn{display:inline-flex;align-items:center;gap:8px;background:var(--terracotta);color:#fff;
+    text-decoration:none;font-weight:600;font-size:14px;padding:9px 16px;border-radius:8px;
+    transition:transform .12s ease,filter .12s ease}
+  .btn:hover{filter:brightness(1.06)}
+  .btn:active{transform:translateY(1px)}
+  .btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--border)}
+  .btn.ghost:hover{background:var(--surface-2)}
+
+  /* Hero */
+  header.hero{padding:96px 0 72px}
+  .eyebrow{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--terracotta);
+    font-weight:600;margin-bottom:22px}
+  header.hero h1{font-size:clamp(38px,6vw,62px);margin:0 0 22px;max-width:16ch;text-wrap:balance}
+  header.hero .lede{font-size:clamp(17px,2vw,21px);color:var(--muted);max-width:60ch;margin:0 0 34px}
+  .cta{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+  .cta .note{font-size:13px;color:var(--muted)}
+
+  /* Section scaffolding */
+  section{padding:64px 0;border-top:1px solid var(--border)}
+  .sec-head{max-width:56ch;margin-bottom:40px}
+  .sec-head h2{font-size:clamp(26px,3.4vw,36px);margin:0 0 12px}
+  .sec-head p{color:var(--muted);font-size:17px;margin:0}
+  .kicker{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--terracotta);
+    font-weight:600;margin-bottom:14px}
+
+  /* Lanes */
+  .lanes{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);
+    border:1px solid var(--border);border-radius:14px;overflow:hidden}
+  @media(max-width:820px){.lanes{grid-template-columns:1fr}}
+  .lane{background:var(--surface);padding:30px 26px}
+  .lane h3{font-size:20px;margin:0 0 6px}
+  .lane .tag{font-family:var(--mono);font-size:11px;color:var(--terracotta);letter-spacing:.04em;
+    text-transform:uppercase;margin-bottom:14px}
+  .lane p{margin:0;color:var(--muted);font-size:15px}
+  .lane b{color:var(--text);font-weight:600}
+
+  /* Trust — the centerpiece */
+  .trust{background:var(--ink);color:#e7ebf0;border-radius:16px;padding:44px clamp(24px,4vw,48px)}
+  .trust .kicker{color:#e0a06a}
+  .trust h2{color:#fff}
+  .trust .sub{color:#aeb7c2;font-size:17px;max-width:60ch;margin:10px 0 30px}
+  .rows{display:grid;gap:1px;background:rgba(255,255,255,.1);border-radius:12px;overflow:hidden}
+  .row{display:grid;grid-template-columns:1.4fr 1fr;gap:18px;background:#212e40;padding:18px 22px}
+  @media(max-width:720px){.row{grid-template-columns:1fr;gap:6px}}
+  .row .claim{color:#eef2f6;font-size:15px}
+  .row .claim b{color:#fff}
+  .row .where{font-family:var(--mono);font-size:12.5px;color:#9fb0c4;align-self:center}
+  .trust .foot{margin-top:22px;font-size:14px;color:#aeb7c2}
+  .trust .foot code{font-family:var(--mono);font-size:12.5px;background:rgba(255,255,255,.08);
+    padding:2px 6px;border-radius:5px;color:#e7ebf0}
+
+  /* Open-core */
+  .oc{display:grid;grid-template-columns:1fr 1fr;gap:28px}
+  @media(max-width:720px){.oc{grid-template-columns:1fr}}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:26px}
+  .card h3{font-size:18px;margin:0 0 10px;display:flex;align-items:center;gap:9px}
+  .card p{margin:0;color:var(--muted);font-size:15px}
+  .card .dot{width:9px;height:9px;border-radius:50%;flex:none}
+  .dot.open{background:#4a9d6b} .dot.closed{background:var(--terracotta)}
+
+  footer{border-top:1px solid var(--border);padding:40px 0 60px;color:var(--muted);font-size:14px}
+  footer .frow{display:flex;gap:18px;flex-wrap:wrap;align-items:center}
+  footer a{text-decoration:none;color:var(--muted)}
+  footer a:hover{color:var(--ink)}
+  .disc{margin-top:18px;font-size:13px;color:var(--muted);max-width:70ch}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap nav-in">
+    <a class="brand" href="#top">
+      <svg viewBox="0 0 100 100" aria-hidden="true"><path d="M48 74 L18 66 L18 46 L48 55 Z" fill="#1e2a3a"/><path d="M52 74 L82 66 L82 46 L52 55 Z" fill="#1e2a3a"/><path d="M50 50 L36 30 M50 50 L50 22 M50 50 L64 32" stroke="#1e2a3a" stroke-width="2.6" fill="none" stroke-linecap="round"/><circle cx="50" cy="22" r="5.5" fill="#c06a3e"/><circle cx="36" cy="30" r="4" fill="#1e2a3a"/><circle cx="64" cy="32" r="4" fill="#1e2a3a"/><circle cx="50" cy="50" r="3" fill="#1e2a3a"/></svg>
+      Praxis
+    </a>
+    <div class="nav-sp"></div>
+    <div class="nav-links">
+      <a href="#lanes">What it does</a>
+      <a href="#trust">Your data</a>
+      <a href="#open-core">Open-core</a>
+      <a class="btn" href="#download">Download</a>
+    </div>
+  </div>
+</nav>
+
+<a id="top"></a>
+<header class="hero">
+  <div class="wrap">
+    <div class="eyebrow">For social-science researchers</div>
+    <h1>From a research question to submission-ready work.</h1>
+    <p class="lede">Praxis is a local-first desktop app that runs your quantitative,
+      qualitative, and mixed-methods work — regressions you adjudicate into a final table,
+      publication-grade figures, coding you rule on, manuscripts compiled to journal PDF
+      and Word. No terminal. No coding agent to configure. Your data stays on your machine.</p>
+    <div class="cta">
+      <a class="btn" href="#download">Download for macOS</a>
+      <a class="btn ghost" href="#trust">How your data is handled</a>
+      <span class="note">Free · bring your own model key · macOS 13+</span>
+    </div>
+  </div>
+</header>
+
+<section id="lanes">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="kicker">What it does</div>
+      <h2>Three lanes — and you make every call.</h2>
+      <p>The agent proposes; you decide. Every result lands as a file you own, and traces
+        back to the code that made it.</p>
+    </div>
+    <div class="lanes">
+      <div class="lane">
+        <div class="tag">Quantitative</div>
+        <h3>Regressions you adjudicate</h3>
+        <p>Hand it a dataset. It runs the data check, a baseline model menu and robustness,
+          and hands you the models as <b>candidates</b> — you adopt the ones that make the
+          final table. Every number traces to a runnable do-file; figures come out
+          publication-grade by default.</p>
+      </div>
+      <div class="lane">
+        <div class="tag">Qualitative</div>
+        <h3>Coding you rule on</h3>
+        <p>Open-code a transcript into candidate codes you accept or reject one by one.
+          Export to REFI-QDA (<b>.qdpx</b>) for NVivo and MAXQDA — the human stays in
+          charge of the interpretation.</p>
+      </div>
+      <div class="lane">
+        <div class="tag">Writing</div>
+        <h3>Journal PDF and Word</h3>
+        <p>Compile a review or paper to a journal <b>PDF</b> (LaTeX) and a journal
+          <b>Word</b> document — Chinese social-science formatting or APA — from the same
+          manuscript.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="trust">
+  <div class="wrap">
+    <div class="trust">
+      <div class="kicker">Your data</div>
+      <h2>You can read exactly how your data is handled.</h2>
+      <p class="sub">The app's shell is open source for one reason: trust should be
+        verifiable, not promised. Every guarantee below points to the code that implements
+        it.</p>
+      <div class="rows">
+        <div class="row">
+          <div class="claim"><b>Your files and raw data stay on your machine.</b> The
+            agent runs inside the folder you chose, never your filesystem root.</div>
+          <div class="where">runtime.rs · spawn_sidecar</div>
+        </div>
+        <div class="row">
+          <div class="claim"><b>Provider keys are stored locally, in an owner-only file.</b>
+            Never in the workspace, provenance, or exports.</div>
+          <div class="where">runtime.rs · tighten_private</div>
+        </div>
+        <div class="row">
+          <div class="claim"><b>Keys are redacted from the debug log</b>, and the log is
+            owner-only — a bug report can't leak a credential.</div>
+          <div class="where">debug_log.rs · redact</div>
+        </div>
+        <div class="row">
+          <div class="claim"><b>No telemetry, no analytics, no phone-home.</b> Data leaves
+            only during a conversation turn — nothing in the background.</div>
+          <div class="where">grep: no posthog / sentry</div>
+        </div>
+        <div class="row">
+          <div class="claim"><b>The runtime is localhost-only and password-gated.</b> A
+            fresh random password each launch, held in memory, never on disk.</div>
+          <div class="where">runtime.rs · server_password</div>
+        </div>
+        <div class="row">
+          <div class="claim"><b>Dangerous actions ask first.</b> Deleting files, installs,
+            remote connections, and web fetches prompt for approval by default.</div>
+          <div class="where">opencode_config.rs · DANGEROUS_BASH</div>
+        </div>
+      </div>
+      <p class="foot">The only thing sent off-machine is your request to the model provider
+        you chose — the same data you'd send using that provider's own website. The app
+        states this in plain language under <code>Settings → Privacy &amp; data flow</code>.</p>
+    </div>
+  </div>
+</section>
+
+<section id="open-core">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="kicker">Open-core</div>
+      <h2>The trust layer is open. The craft is ours.</h2>
+      <p>Praxis is open-core — a deliberate split between the part you must be able to
+        audit and the methodology that makes it good.</p>
+    </div>
+    <div class="oc">
+      <div class="card">
+        <h3><span class="dot open"></span> Open — the shell (MIT)</h3>
+        <p>The desktop app, the interface, and the runtime integration layer: how keys are
+          stored, how the agent is sandboxed to your workspace, and exactly what leaves
+          your machine. This is what you need to trust, so it is open and auditable.</p>
+      </div>
+      <div class="card">
+        <h3><span class="dot closed"></span> Proprietary — the methodology</h3>
+        <p>The skills that do the annotation, the qualitative coding, the regression
+          adjudication, the journal formatting, and the methodology reviews. Shipped inside
+          the app, refined over many iterations — that craft is the product.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="download">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="kicker">Download</div>
+      <h2>Install it like any app.</h2>
+      <p>Drag it to Applications, paste one model key, and the setup guide walks you
+        through the rest. It updates itself when a new signed version is out.</p>
+    </div>
+    <div class="cta">
+      <a class="btn" href="#">Download for macOS (Apple Silicon)</a>
+      <a class="btn ghost" href="#">View source</a>
+      <span class="note">Release links go here once the repo is published.</span>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="frow">
+      <a class="brand" href="#top" style="font-size:17px">
+        <svg viewBox="0 0 100 100" style="width:20px;height:20px" aria-hidden="true"><path d="M48 74 L18 66 L18 46 L48 55 Z" fill="#1e2a3a"/><path d="M52 74 L82 66 L82 46 L52 55 Z" fill="#1e2a3a"/><path d="M50 50 L36 30 M50 50 L50 22 M50 50 L64 32" stroke="#1e2a3a" stroke-width="2.6" fill="none" stroke-linecap="round"/><circle cx="50" cy="22" r="5.5" fill="#c06a3e"/><circle cx="36" cy="30" r="4" fill="#1e2a3a"/><circle cx="64" cy="32" r="4" fill="#1e2a3a"/><circle cx="50" cy="50" r="3" fill="#1e2a3a"/></svg>
+        Praxis
+      </a>
+      <div class="nav-sp"></div>
+      <a href="#trust">Your data</a>
+      <a href="#open-core">Open-core</a>
+      <a href="#download">Download</a>
+    </div>
+    <p class="disc">Research tooling. Outputs are drafts — verify numbers, citations, and
+      claims, and have a domain expert review before any submission or decision. The shell
+      is MIT-licensed; the methodology layer is proprietary. This page makes no external
+      requests — no fonts, no analytics, no trackers.</p>
+  </div>
+</footer>
+
+</body>
+</html>

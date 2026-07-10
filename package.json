@@ -1,0 +1,18 @@
+{
+  "name": "ai4s-workbench",
+  "version": "0.1.2",
+  "private": true,
+  "description": "Open-source AI research workbench for reproducible science.",
+  "license": "MIT",
+  "scripts": {
+    "dev": "pnpm --filter @ai4s/desktop dev",
+    "build": "pnpm --filter @ai4s/desktop build",
+    "test": "pnpm --filter @ai4s/desktop test",
+    "typecheck": "pnpm --filter @ai4s/desktop typecheck",
+    "lint": "pnpm --filter @ai4s/desktop lint"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@9.4.0"
+}
