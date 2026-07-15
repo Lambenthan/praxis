@@ -35,7 +35,17 @@ Word。结果都保存为工作区里的文件,应用也写明了你的数据是
 大多数人直接下 **`.exe`** 即可。所有版本都在
 [**Releases**](https://github.com/Lambenthan/praxis/releases/latest) 页面。
 
-**macOS** —— 暂请从源码构建(见「从源码构建」一节)。
+**macOS(Apple Silicon)** —— 下载 DMG,打开后把 Praxis 拖进「应用程序」:
+
+[`Praxis_0.2.0_aarch64.dmg`](https://github.com/Lambenthan/praxis/releases/download/v0.2.0/Praxis_0.2.0_aarch64.dmg)
+
+Mac 版尚未做苹果公证,**首次**打开会被系统拦一下(提示"无法验证是否含恶意软件"——不是包有问题,是没买苹果签名)。放行一次即可,以后正常双击:
+
+1. 双击 Praxis,弹窗点「完成」(**别**拖进废纸篓)。
+2. 打开「系统设置 → 隐私与安全性」,往下滚到「安全性」区,在"已阻止 Praxis 以保护你的 Mac"旁边点「仍要打开」。
+3. 输入开机密码,再点「打开」。之后就当普通应用双击即可,不用再放行。
+
+_(备选 —— 终端跑一条:`xattr -cr /Applications/Praxis.app`,然后双击打开。较新版 macOS 上"右键→打开"已不能绕过,请用上面的设置法。Intel Mac 暂请从源码构建。)_
 
 安装后首次打开会引导你连接一个模型(推荐 **DeepSeek**,国内可直连、价格低),
 粘贴 API key 即可开始。**Stata 为可选**,本机装了才需要连接。

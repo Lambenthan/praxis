@@ -38,7 +38,17 @@ saved as files in your workspace, and the app documents how your data is handled
 Most people should just download the **`.exe`**. All builds live on the
 [**Releases**](https://github.com/Lambenthan/praxis/releases/latest) page.
 
-**macOS** — build from source for now (see [Build from source](#build-from-source)).
+**macOS (Apple Silicon)** — download the DMG, open it, and drag Praxis to Applications:
+
+[`Praxis_0.2.0_aarch64.dmg`](https://github.com/Lambenthan/praxis/releases/download/v0.2.0/Praxis_0.2.0_aarch64.dmg)
+
+The macOS build is not notarized by Apple yet, so the **first** launch is blocked by Gatekeeper (it is safe — there is just no paid Apple signature). Allow it once:
+
+1. Double-click Praxis; on the warning, click **Done** (do not move it to Trash).
+2. Open **System Settings → Privacy & Security**, scroll to **Security**, and next to "Praxis was blocked…" click **Open Anyway**.
+3. Enter your login password and click **Open**. From then on it opens normally with a double-click.
+
+_(Alternative — one command in Terminal: `xattr -cr /Applications/Praxis.app`, then double-click. Right-clicking "Open" no longer bypasses this on recent macOS. Intel Macs: build from source for now.)_
 
 After install, Praxis guides you to connect one model key (**DeepSeek**
 recommended — low cost, reachable in China) and you are ready. Stata is optional.
