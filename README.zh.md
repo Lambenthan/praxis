@@ -29,15 +29,15 @@ Word。结果都保存为工作区里的文件,应用也写明了你的数据是
 
 | 安装包 | 什么时候选 |
 |---|---|
-| **[`Praxis_0.2.0_x64-setup.exe`](https://github.com/Lambenthan/praxis/releases/download/v0.2.0/Praxis_0.2.0_x64-setup.exe)** ✅ **推荐** | 绝大多数用户。双击安装,体积小,自带自动更新。 |
-| [`Praxis_0.2.0_x64_en-US.msi`](https://github.com/Lambenthan/praxis/releases/download/v0.2.0/Praxis_0.2.0_x64_en-US.msi) | 备选 —— 需要 MSI 做企业/批量部署时用。 |
+| **[`Praxis_0.2.1_x64-setup.exe`](https://github.com/Lambenthan/praxis/releases/download/v0.2.1/Praxis_0.2.1_x64-setup.exe)** ✅ **推荐** | 绝大多数用户。双击安装,体积小,自带自动更新。 |
+| [`Praxis_0.2.1_x64_en-US.msi`](https://github.com/Lambenthan/praxis/releases/download/v0.2.1/Praxis_0.2.1_x64_en-US.msi) | 备选 —— 需要 MSI 做企业/批量部署时用。 |
 
 大多数人直接下 **`.exe`** 即可。所有版本都在
 [**Releases**](https://github.com/Lambenthan/praxis/releases/latest) 页面。
 
 **macOS(Apple Silicon)** —— 下载 DMG,打开后把 Praxis 拖进「应用程序」:
 
-[`Praxis_0.2.0_aarch64.dmg`](https://github.com/Lambenthan/praxis/releases/download/v0.2.0/Praxis_0.2.0_aarch64.dmg)
+[`Praxis_0.2.1_aarch64.dmg`](https://github.com/Lambenthan/praxis/releases/download/v0.2.1/Praxis_0.2.1_aarch64.dmg)
 
 Mac 版尚未做苹果公证,**首次**打开会被系统拦一下(提示"无法验证是否含恶意软件"——不是包有问题,是没买苹果签名)。放行一次即可,以后正常双击:
 
