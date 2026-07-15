@@ -26,8 +26,26 @@ saved as files in your workspace, and the app documents how your data is handled
 
 ---
 
+## Download
+
+**Windows** — download an installer and run it:
+
+| Installer | When to use |
+|---|---|
+| **[`Praxis_0.2.0_x64-setup.exe`](https://github.com/Lambenthan/praxis/releases/download/v0.2.0/Praxis_0.2.0_x64-setup.exe)** ✅ **recommended** | Most users. One-click install, smaller, auto-updates. |
+| [`Praxis_0.2.0_x64_en-US.msi`](https://github.com/Lambenthan/praxis/releases/download/v0.2.0/Praxis_0.2.0_x64_en-US.msi) | Alternative — MSI-based / managed deployment. |
+
+Most people should just download the **`.exe`**. All builds live on the
+[**Releases**](https://github.com/Lambenthan/praxis/releases/latest) page.
+
+**macOS** — build from source for now (see [Build from source](#build-from-source)).
+
+After install, Praxis guides you to connect one model key (**DeepSeek**
+recommended — low cost, reachable in China) and you are ready. Stata is optional.
+
 ## Contents
 
+- [Download](#download)
 - [Who it is for](#who-it-is-for)
 - [What it does](#what-it-does)
 - [How your data is handled](#how-your-data-is-handled)

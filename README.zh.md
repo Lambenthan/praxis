@@ -23,6 +23,23 @@ Word。结果都保存为工作区里的文件,应用也写明了你的数据是
 
 ---
 
+## 下载安装
+
+**Windows** —— 下载安装包,双击运行:
+
+| 安装包 | 什么时候选 |
+|---|---|
+| **[`Praxis_0.2.0_x64-setup.exe`](https://github.com/Lambenthan/praxis/releases/download/v0.2.0/Praxis_0.2.0_x64-setup.exe)** ✅ **推荐** | 绝大多数用户。双击安装,体积小,自带自动更新。 |
+| [`Praxis_0.2.0_x64_en-US.msi`](https://github.com/Lambenthan/praxis/releases/download/v0.2.0/Praxis_0.2.0_x64_en-US.msi) | 备选 —— 需要 MSI 做企业/批量部署时用。 |
+
+大多数人直接下 **`.exe`** 即可。所有版本都在
+[**Releases**](https://github.com/Lambenthan/praxis/releases/latest) 页面。
+
+**macOS** —— 暂请从源码构建(见「从源码构建」一节)。
+
+安装后首次打开会引导你连接一个模型(推荐 **DeepSeek**,国内可直连、价格低),
+粘贴 API key 即可开始。**Stata 为可选**,本机装了才需要连接。
+
 ## 写给谁
 
 想要 AI 科研助手、又不愿为此配置终端、编码智能体或 API 的社科研究者。Praxis 像普通桌面
