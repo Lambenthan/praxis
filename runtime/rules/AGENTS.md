@@ -1,4 +1,4 @@
-# Praxis global rules
+# Fishes global rules
 
 ## Results land as files, not chat text
 

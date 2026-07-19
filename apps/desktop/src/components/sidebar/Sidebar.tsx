@@ -9,8 +9,8 @@ import { useRuntimeStore } from "@/lib/runtime";
 import { SIDEBAR_MAX, SIDEBAR_MIN, useUiStore } from "@/lib/store";
 import { StatusPills } from "./StatusPills";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import mark from "@/assets/praxis-mark.svg";
-import markReversed from "@/assets/praxis-mark-reversed.svg";
+import mark from "@/assets/fishes-mark.svg";
+import markReversed from "@/assets/fishes-mark-reversed.svg";
 
 interface Row {
   id: string;
@@ -121,21 +121,21 @@ export function Sidebar({ project }: { project: Project }) {
       )}
       <div className={cn("px-4 pb-3", overlayTitlebar ? "pt-1" : "pt-4")}>
         <div className="flex items-baseline gap-1.5">
-          {/* The real Praxis mark (transparent-ground node glyph): the ink-node
+          {/* The real Fishes mark (transparent-ground node glyph): the ink-node
               color version on the light UI, the reversed paper version on dark.
               Serif wordmark beside it against the Geist-sans UI is the signature. */}
           <img
             src={mark}
-            alt="Praxis"
+            alt="Fishes"
             className="h-[19px] w-[19px] shrink-0 self-center dark:hidden"
           />
           <img
             src={markReversed}
-            alt="Praxis"
+            alt="Fishes"
             className="hidden h-[19px] w-[19px] shrink-0 self-center dark:block"
           />
           <div className="font-serif text-[17px] font-semibold leading-none tracking-tight text-text">
-            Praxis
+            Fishes
           </div>
           <span className="text-[10px] uppercase tracking-widest text-muted">{t("Beta")}</span>
           {!overlayTitlebar && (

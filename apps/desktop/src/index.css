@@ -24,7 +24,7 @@
   /* Neutral secondary grey (was warm #7a756a), still clearing WCAG AA
      (~4.6:1 on the paper base). */
   --muted: #6e716a;
-  /* Accent = the brand terracotta from the Praxis logo (#c06a3e), so the mark
+  /* Accent = the brand terracotta from the Fishes logo (#c06a3e), so the mark
      and the UI accent read as one color. Distinct from ok-green / link-blue /
      error-red. Where it carries small text (a chip), it is paired with medium
      weight to hold contrast. */

@@ -2,8 +2,8 @@ import { useEffect, type ReactNode } from "react";
 import { useLocaleStore } from "@/lib/i18n";
 
 const TITLE: Record<string, string> = {
-  en: "Praxis",
-  zh: "Praxis",
+  en: "Fishes",
+  zh: "Fishes",
 };
 
 /** Applies the current locale to the document root (lang attribute, title). */

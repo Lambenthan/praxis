@@ -59,7 +59,7 @@ for s in doc["sources"]:
 
 xml = (
     '<?xml version="1.0" encoding="utf-8"?>'
-    '<Project xmlns="urn:QDA-XML:project:1.0" name="open_coding" origin="Praxis">'
+    '<Project xmlns="urn:QDA-XML:project:1.0" name="open_coding" origin="Fishes">'
     f"<CodeBook><Codes>{codes_xml}</Codes></CodeBook>"
     f"<Sources>{sources_xml}</Sources>"
     "</Project>"

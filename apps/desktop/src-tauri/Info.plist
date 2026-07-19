@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!-- Merged into the generated Info.plist by Tauri. These usage descriptions are
-     the text macOS shows in the privacy prompt when Praxis first reads the
+     the text macOS shows in the privacy prompt when Fishes first reads the
      user's research folder — without them the prompt is a bare, alarming
      "wants to access". -->
 <plist version="1.0">
 <dict>
   <key>NSDocumentsFolderUsageDescription</key>
-  <string>Praxis 需要访问该文件夹,以读写你的研究数据、脚本和分析结果。这些文件始终留在你的电脑上。</string>
+  <string>Fishes 需要访问该文件夹,以读写你的研究数据、脚本和分析结果。这些文件始终留在你的电脑上。</string>
   <key>NSDesktopFolderUsageDescription</key>
-  <string>Praxis 需要访问该文件夹,以读写你放在这里的研究数据和结果文件。</string>
+  <string>Fishes 需要访问该文件夹,以读写你放在这里的研究数据和结果文件。</string>
   <key>NSDownloadsFolderUsageDescription</key>
-  <string>Praxis 需要访问该文件夹,以读取你下载的数据文件、导出分析结果。</string>
+  <string>Fishes 需要访问该文件夹,以读取你下载的数据文件、导出分析结果。</string>
 </dict>
 </plist>

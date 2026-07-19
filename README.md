@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="./apps/desktop/src/assets/praxis-mark.svg" width="88" alt="Praxis" />
+<img src="./apps/desktop/src/assets/fishes-mark.svg" width="88" alt="Fishes" />
 
-# Praxis
+# Fishes
 
 **An AI workbench for social-science research.**
 
@@ -32,25 +32,25 @@ saved as files in your workspace, and the app documents how your data is handled
 
 | Installer | When to use |
 |---|---|
-| **[`Praxis_0.2.1_x64-setup.exe`](https://github.com/Lambenthan/praxis/releases/download/v0.2.1/Praxis_0.2.1_x64-setup.exe)** ✅ **recommended** | Most users. One-click install, smaller, auto-updates. |
-| [`Praxis_0.2.1_x64_en-US.msi`](https://github.com/Lambenthan/praxis/releases/download/v0.2.1/Praxis_0.2.1_x64_en-US.msi) | Alternative — MSI-based / managed deployment. |
+| **[`Fishes_0.2.1_x64-setup.exe`](https://github.com/Lambenthan/fishes/releases/download/v0.2.1/Fishes_0.2.1_x64-setup.exe)** ✅ **recommended** | Most users. One-click install, smaller, auto-updates. |
+| [`Fishes_0.2.1_x64_en-US.msi`](https://github.com/Lambenthan/fishes/releases/download/v0.2.1/Fishes_0.2.1_x64_en-US.msi) | Alternative — MSI-based / managed deployment. |
 
 Most people should just download the **`.exe`**. All builds live on the
-[**Releases**](https://github.com/Lambenthan/praxis/releases/latest) page.
+[**Releases**](https://github.com/Lambenthan/fishes/releases/latest) page.
 
-**macOS (Apple Silicon)** — download the DMG, open it, and drag Praxis to Applications:
+**macOS (Apple Silicon)** — download the DMG, open it, and drag Fishes to Applications:
 
-[`Praxis_0.2.1_aarch64.dmg`](https://github.com/Lambenthan/praxis/releases/download/v0.2.1/Praxis_0.2.1_aarch64.dmg)
+[`Fishes_0.2.1_aarch64.dmg`](https://github.com/Lambenthan/fishes/releases/download/v0.2.1/Fishes_0.2.1_aarch64.dmg)
 
 The macOS build is not notarized by Apple yet, so the **first** launch is blocked by Gatekeeper (it is safe — there is just no paid Apple signature). Allow it once:
 
-1. Double-click Praxis; on the warning, click **Done** (do not move it to Trash).
-2. Open **System Settings → Privacy & Security**, scroll to **Security**, and next to "Praxis was blocked…" click **Open Anyway**.
+1. Double-click Fishes; on the warning, click **Done** (do not move it to Trash).
+2. Open **System Settings → Privacy & Security**, scroll to **Security**, and next to "Fishes was blocked…" click **Open Anyway**.
 3. Enter your login password and click **Open**. From then on it opens normally with a double-click.
 
-_(Alternative — one command in Terminal: `xattr -cr /Applications/Praxis.app`, then double-click. Right-clicking "Open" no longer bypasses this on recent macOS. Intel Macs: build from source for now.)_
+_(Alternative — one command in Terminal: `xattr -cr /Applications/Fishes.app`, then double-click. Right-clicking "Open" no longer bypasses this on recent macOS. Intel Macs: build from source for now.)_
 
-After install, Praxis guides you to connect one model key (**DeepSeek**
+After install, Fishes guides you to connect one model key (**DeepSeek**
 recommended — low cost, reachable in China) and you are ready. Stata is optional.
 
 ## Contents
@@ -70,13 +70,13 @@ recommended — low cost, reachable in China) and you are ready. Stata is option
 ## Who it is for
 
 Social-science researchers who want an AI research assistant without setting up a
-terminal, a coding agent, or an API integration. Praxis installs like any desktop
+terminal, a coding agent, or an API integration. Fishes installs like any desktop
 app. You paste one model key, and it guides the work — quantitative, qualitative,
 or mixed methods.
 
 ## What it does
 
-Praxis is organised around the three research lanes, and around the researcher
+Fishes is organised around the three research lanes, and around the researcher
 making the decisions.
 
 - **Quantitative.** It runs a data check, a baseline model menu (OLS, clustered
@@ -156,8 +156,8 @@ stay pluggable.
 > the [Rust toolchain](https://rustup.rs) (for Tauri). macOS or Windows.
 
 ```bash
-git clone https://github.com/Lambenthan/praxis
-cd praxis
+git clone https://github.com/Lambenthan/fishes
+cd fishes
 pnpm install
 
 # Fetch the pinned sidecars (kept out of git; they carry their own licenses):

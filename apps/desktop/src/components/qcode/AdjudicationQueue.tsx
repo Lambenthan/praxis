@@ -25,7 +25,7 @@ export function AdjudicationQueue({
 
   if (candidates.length === 0) {
     // The ritual is done: a quiet, confident close rather than a bare line —
-    // the whole point of Praxis is that a human finished winnowing the AI's
+    // the whole point of Fishes is that a human finished winnowing the AI's
     // candidates, so finishing should read as an accomplishment.
     return (
       <div className="w-72 shrink-0 border-l border-border p-4">

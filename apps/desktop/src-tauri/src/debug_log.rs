@@ -83,7 +83,7 @@ mod tests {
     #[test]
     fn never_redacts_paths() {
         // The log's normal content — a long workspace path — stays intact.
-        let path = "/Users/researcher/Documents/Praxis/my-study/analysis_panel";
+        let path = "/Users/researcher/Documents/Fishes/my-study/analysis_panel";
         assert_eq!(redact(&format!("wrote {path}")), format!("wrote {path}"));
     }
 

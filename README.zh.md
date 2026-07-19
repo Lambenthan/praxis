@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="./apps/desktop/src/assets/praxis-mark.svg" width="88" alt="Praxis" />
+<img src="./apps/desktop/src/assets/fishes-mark.svg" width="88" alt="Fishes" />
 
-# Praxis
+# Fishes
 
 **面向社会科学研究的 AI 工作台。**
 
@@ -29,35 +29,35 @@ Word。结果都保存为工作区里的文件,应用也写明了你的数据是
 
 | 安装包 | 什么时候选 |
 |---|---|
-| **[`Praxis_0.2.1_x64-setup.exe`](https://github.com/Lambenthan/praxis/releases/download/v0.2.1/Praxis_0.2.1_x64-setup.exe)** ✅ **推荐** | 绝大多数用户。双击安装,体积小,自带自动更新。 |
-| [`Praxis_0.2.1_x64_en-US.msi`](https://github.com/Lambenthan/praxis/releases/download/v0.2.1/Praxis_0.2.1_x64_en-US.msi) | 备选 —— 需要 MSI 做企业/批量部署时用。 |
+| **[`Fishes_0.2.1_x64-setup.exe`](https://github.com/Lambenthan/fishes/releases/download/v0.2.1/Fishes_0.2.1_x64-setup.exe)** ✅ **推荐** | 绝大多数用户。双击安装,体积小,自带自动更新。 |
+| [`Fishes_0.2.1_x64_en-US.msi`](https://github.com/Lambenthan/fishes/releases/download/v0.2.1/Fishes_0.2.1_x64_en-US.msi) | 备选 —— 需要 MSI 做企业/批量部署时用。 |
 
 大多数人直接下 **`.exe`** 即可。所有版本都在
-[**Releases**](https://github.com/Lambenthan/praxis/releases/latest) 页面。
+[**Releases**](https://github.com/Lambenthan/fishes/releases/latest) 页面。
 
-**macOS(Apple Silicon)** —— 下载 DMG,打开后把 Praxis 拖进「应用程序」:
+**macOS(Apple Silicon)** —— 下载 DMG,打开后把 Fishes 拖进「应用程序」:
 
-[`Praxis_0.2.1_aarch64.dmg`](https://github.com/Lambenthan/praxis/releases/download/v0.2.1/Praxis_0.2.1_aarch64.dmg)
+[`Fishes_0.2.1_aarch64.dmg`](https://github.com/Lambenthan/fishes/releases/download/v0.2.1/Fishes_0.2.1_aarch64.dmg)
 
 Mac 版尚未做苹果公证,**首次**打开会被系统拦一下(提示"无法验证是否含恶意软件"——不是包有问题,是没买苹果签名)。放行一次即可,以后正常双击:
 
-1. 双击 Praxis,弹窗点「完成」(**别**拖进废纸篓)。
-2. 打开「系统设置 → 隐私与安全性」,往下滚到「安全性」区,在"已阻止 Praxis 以保护你的 Mac"旁边点「仍要打开」。
+1. 双击 Fishes,弹窗点「完成」(**别**拖进废纸篓)。
+2. 打开「系统设置 → 隐私与安全性」,往下滚到「安全性」区,在"已阻止 Fishes 以保护你的 Mac"旁边点「仍要打开」。
 3. 输入开机密码,再点「打开」。之后就当普通应用双击即可,不用再放行。
 
-_(备选 —— 终端跑一条:`xattr -cr /Applications/Praxis.app`,然后双击打开。较新版 macOS 上"右键→打开"已不能绕过,请用上面的设置法。Intel Mac 暂请从源码构建。)_
+_(备选 —— 终端跑一条:`xattr -cr /Applications/Fishes.app`,然后双击打开。较新版 macOS 上"右键→打开"已不能绕过,请用上面的设置法。Intel Mac 暂请从源码构建。)_
 
 安装后首次打开会引导你连接一个模型(推荐 **DeepSeek**,国内可直连、价格低),
 粘贴 API key 即可开始。**Stata 为可选**,本机装了才需要连接。
 
 ## 写给谁
 
-想要 AI 科研助手、又不愿为此配置终端、编码智能体或 API 的社科研究者。Praxis 像普通桌面
+想要 AI 科研助手、又不愿为此配置终端、编码智能体或 API 的社科研究者。Fishes 像普通桌面
 应用一样安装。粘贴一个模型 key,它就带你把定量、定性或混合方法的工作做下去。
 
 ## 它做什么
 
-Praxis 围绕三条研究泳道组织,决定权在研究者手里。
+Fishes 围绕三条研究泳道组织,决定权在研究者手里。
 
 - **定量。** 它做数据体检、一套基准模型菜单(OLS、聚类标准误、固定效应)和稳健性检验,再把
   这些模型作为候选交给你。由你选择哪些进终表。每个数字都能回溯到一份可复现的 do 文件。图用
@@ -124,8 +124,8 @@ sidecar。界面不直接与模型对话,而是走一层薄 SDK,因此 skill、M
 > [Rust 工具链](https://rustup.rs)(Tauri 需要)。macOS 或 Windows。
 
 ```bash
-git clone https://github.com/Lambenthan/praxis
-cd praxis
+git clone https://github.com/Lambenthan/fishes
+cd fishes
 pnpm install
 
 # 拉取锁定版本的 sidecar(不入 git,各自持有许可):

@@ -1,6 +1,6 @@
-# Praxis (desktop)
+# Fishes (desktop)
 
-Brand name: **Praxis** — "An AI workbench for social-science research. Your
+Brand name: **Fishes** — "An AI workbench for social-science research. Your
 partner from question to submission." (Bundle identifier stays
 `com.ai4s.workbench` and internal `@ai4s/*` package names are unchanged —
 display branding only. Forked from the MIT `open-science` base; that lineage
