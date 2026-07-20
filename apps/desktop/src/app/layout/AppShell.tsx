@@ -5,12 +5,14 @@ import { cn } from "@/lib/cn";
 import { Sidebar } from "@/components/sidebar/Sidebar";
 import { CommandPalette } from "@/components/command-palette/CommandPalette";
 import { UpdateGate } from "@/components/update/UpdateGate";
+import { SetupGate } from "@/components/setup/SetupGate";
 import { Toaster } from "@/components/ui/Toaster";
 import { mockProject } from "@/lib/mock";
 import { getClient, useRuntimeStore } from "@/lib/runtime";
 import { useUiStore } from "@/lib/store";
 import { ensureJupyter, isTauri, openExternal } from "@/lib/tauri";
 import { useT } from "@/lib/i18n";
+import { installZoomHotkeys } from "@/lib/zoom";
 
 export function AppShell() {
   const { sidebarCollapsed, setSidebarCollapsed } = useUiStore();
@@ -27,6 +29,9 @@ export function AppShell() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+
+  // Browser-style UI zoom: ⌘+ / ⌘− / ⌘0 (Ctrl on Windows/Linux).
+  useEffect(() => installZoomHotkeys(), []);
   // In the packaged desktop app, auto-start the bundled OpenCode and connect,
   // and bring the Jupyter server back up if the user enabled it before.
   useEffect(() => {
@@ -113,6 +118,7 @@ export function AppShell() {
       </main>
       <CommandPalette />
       <UpdateGate />
+      <SetupGate />
       <Toaster />
     </div>
   );

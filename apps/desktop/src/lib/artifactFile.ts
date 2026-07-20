@@ -2,7 +2,7 @@
 // browser these return null / no-op so the app still runs in `pnpm dev`.
 // Paths are root-relative; `root` picks the tree ("workspace" = the active
 // session folder, default; "base" = the folder all session workspaces live under).
-import type { FileRoot } from "@ai4s/shared";
+import type { FileRoot } from "@fishes/shared";
 import { isTauri } from "./tauri";
 
 export type { FileRoot };

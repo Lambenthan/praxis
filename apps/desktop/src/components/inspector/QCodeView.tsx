@@ -40,11 +40,11 @@ export function QCodeView({ filename, text }: { filename: string; text: string }
   return (
     <div className="flex h-full flex-col bg-surface">
       <div className="flex items-center gap-2 border-b border-border px-3 py-2">
-        <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-muted">
+        <span className="min-w-0 flex-1 truncate font-mono text-[12px] text-muted">
           {filename} · {doc.sources.length} {doc.sources.length === 1 ? t("source") : t("sources")} ·{" "}
           {doc.codes.length} {t("codes")}
         </span>
-        <span className="inline-flex items-center gap-1 text-[11px] text-ok" title={t("Highlights are exact source spans — quotes are sliced from the source, never generated.")}>
+        <span className="inline-flex items-center gap-1 text-[12px] text-ok" title={t("Highlights are exact source spans — quotes are sliced from the source, never generated.")}>
           <ShieldCheck size={13} /> {t("quotes are exact source spans")}
         </span>
       </div>
@@ -80,7 +80,7 @@ export function QCodeView({ filename, text }: { filename: string; text: string }
           {active && (
             <button
               onClick={() => setActive(null)}
-              className="mt-1 w-full rounded-md px-2 py-1 text-[11px] text-muted hover:text-text"
+              className="mt-1 w-full rounded-md px-2 py-1 text-[12px] text-muted hover:text-text"
             >
               {t("clear filter")}
             </button>
@@ -132,7 +132,7 @@ export function QCodeView({ filename, text }: { filename: string; text: string }
         </div>
       </div>
 
-      <div className="border-t border-border px-3 py-2 font-mono text-[11px] text-muted">
+      <div className="border-t border-border px-3 py-2 font-mono text-[12px] text-muted">
         {hoverSeg ? (
           <span>
             <span className="text-text">“{hoverSeg.text}”</span> → {hoverSeg.codes.join(", ")}

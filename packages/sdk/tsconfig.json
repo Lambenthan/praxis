@@ -10,7 +10,7 @@
     "isolatedModules": true,
     "baseUrl": ".",
     "paths": {
-      "@ai4s/shared": ["../shared/src/index.ts"]
+      "@fishes/shared": ["../shared/src/index.ts"]
     }
   },
   "include": ["src"]

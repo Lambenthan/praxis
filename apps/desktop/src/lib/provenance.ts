@@ -2,8 +2,8 @@
 // calls into version records in `.openscience/provenance.jsonl`, and read them
 // back for the artifact History view. Pure derivation is separated from the
 // Tauri bridge so it can be unit-tested without a desktop shell.
-import type { ToolUpdatedEvent } from "@ai4s/sdk";
-import type { ProvenanceRecord } from "@ai4s/shared";
+import type { ToolUpdatedEvent } from "@fishes/sdk";
+import type { ProvenanceRecord } from "@fishes/shared";
 import { isTauri, logDebug } from "./tauri";
 import { deriveArtifact } from "./artifacts";
 

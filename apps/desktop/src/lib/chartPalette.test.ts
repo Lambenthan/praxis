@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { seriesColor, CHART_PALETTE_LIGHT, CHART_PALETTE_DARK } from "@ai4s/shared";
+import { seriesColor, CHART_PALETTE_LIGHT, CHART_PALETTE_DARK } from "@fishes/shared";
 
 // The palette is the single source of truth shared with index.css --series-*
 // and runtime/.../openscience.mplstyle. Lock the hexes so those three stay in sync.

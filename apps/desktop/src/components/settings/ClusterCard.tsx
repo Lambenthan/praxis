@@ -120,7 +120,7 @@ export function ClusterCard() {
       </header>
       <div className="px-5 py-4">
         {!isTauri ? (
-          <p className="text-[13px] text-muted">{t("Available in the desktop app.")}</p>
+          <p className="text-[14px] text-muted">{t("Available in the desktop app.")}</p>
         ) : !host ? (
           <>
             <div className="flex items-center gap-2">
@@ -159,7 +159,7 @@ export function ClusterCard() {
           </>
         ) : (
           <>
-            <div className="flex items-center gap-2.5 text-[13px]">
+            <div className="flex items-center gap-2.5 text-[14px]">
               <span
                 className={cn(
                   "h-1.5 w-1.5 shrink-0 rounded-full",
@@ -191,11 +191,11 @@ export function ClusterCard() {
 
             <div className="mt-3 overflow-hidden rounded-input border border-border">
               {jobs === null ? (
-                <p className="bg-surface px-3 py-2.5 text-[13px] text-muted">
+                <p className="bg-surface px-3 py-2.5 text-[14px] text-muted">
                   {loadingJobs ? t("Reading the queue…") : t("Queue unavailable.")}
                 </p>
               ) : jobs.length === 0 ? (
-                <p className="bg-surface px-3 py-2.5 text-[13px] text-muted">
+                <p className="bg-surface px-3 py-2.5 text-[14px] text-muted">
                   {t("No jobs in the queue.")}
                 </p>
               ) : (
@@ -203,7 +203,7 @@ export function ClusterCard() {
                   <div
                     key={j.id}
                     className={cn(
-                      "flex h-9 items-center gap-2.5 bg-surface px-3 text-[13px]",
+                      "flex h-9 items-center gap-2.5 bg-surface px-3 text-[14px]",
                       i > 0 && "border-t border-border",
                     )}
                   >
@@ -249,14 +249,14 @@ export function ClusterCard() {
 
 const inputCls = (extra = "") =>
   cn(
-    "h-9 rounded-input border border-border bg-surface px-3 text-[13px] text-text outline-none",
+    "h-9 rounded-input border border-border bg-surface px-3 text-[14px] text-text outline-none",
     "placeholder:text-muted focus:border-accent/60",
     extra,
   );
 
 const btnAccent = (extra = "") =>
   cn(
-    "flex h-9 shrink-0 items-center gap-1.5 rounded-input bg-accent px-3.5 text-[13px] font-medium",
+    "flex h-9 shrink-0 items-center gap-1.5 rounded-input bg-accent px-3.5 text-[14px] font-medium",
     "text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-50",
     extra,
   );

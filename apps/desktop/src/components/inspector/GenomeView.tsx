@@ -149,7 +149,7 @@ export function GenomeView({ filename, text }: { filename: string; text: string 
       </div>
 
       {categories.list.length > 1 && (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-border px-3 py-1.5 text-[11px] text-muted">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-border px-3 py-1.5 text-[12px] text-muted">
           {categories.list.map((c) => (
             <span key={c.label} className="flex items-center gap-1">
               <span
@@ -224,7 +224,7 @@ export function GenomeView({ filename, text }: { filename: string; text: string 
 
         {hover && (
           <div
-            className="pointer-events-none absolute z-10 max-w-xs rounded-input border border-border bg-surface px-2.5 py-1.5 text-[11px] shadow-card"
+            className="pointer-events-none absolute z-10 max-w-xs rounded-input border border-border bg-surface px-2.5 py-1.5 text-[12px] shadow-card"
             style={{ left: Math.min(hover.x + 12, width - 200), top: hover.y + 12 }}
           >
             {hover.f.name && <div className="font-medium text-text">{hover.f.name}</div>}
@@ -243,7 +243,7 @@ export function GenomeView({ filename, text }: { filename: string; text: string 
         )}
       </div>
 
-      <div className="border-t border-border px-3 py-1 text-[11px] text-muted">
+      <div className="border-t border-border px-3 py-1 text-[12px] text-muted">
         {t("Drag to pan · scroll to zoom")}
         {rows.length > 0 && Math.max(...rows) + 1 > MAX_ROWS && ` · ${t("showing")} ${MAX_ROWS} ${t("of")} ${Math.max(...rows) + 1} ${t("rows")}`}
         {data.truncated && ` · ${t("file truncated at 50,000 features")}`}

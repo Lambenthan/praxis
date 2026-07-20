@@ -53,7 +53,7 @@ export function ModalCard() {
           </button>
         )}
       </header>
-      <div className="px-5 py-4 text-[13px]">
+      <div className="px-5 py-4 text-[14px]">
         {!isTauri ? (
           <p className="text-muted">{t("Available in the desktop app.")}</p>
         ) : (

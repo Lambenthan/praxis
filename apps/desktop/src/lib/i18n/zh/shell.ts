@@ -3,9 +3,11 @@
 export const shellZh: Record<string, string> = {
   // Sidebar.tsx
   "Collapse sidebar": "折叠侧边栏",
+  "Open another project": "打开其他项目",
   Beta: "测试版",
   New: "新建",
   Notebooks: "笔记本",
+  Literature: "文献",
   Files: "文件",
   Skills: "技能",
   History: "历史",
@@ -36,6 +38,9 @@ export const shellZh: Record<string, string> = {
   "Command palette": "命令面板",
   "Type a command…": "输入命令…",
   "No results.": "无结果。",
+  navigate: "导航",
+  open: "打开",
+  close: "关闭",
 
   // ClusterCard.tsx
   "Could not read the queue:": "无法读取队列：",

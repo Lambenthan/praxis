@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import type { PermissionAskedEvent, QuestionAskedEvent } from "@ai4s/sdk";
+import type { PermissionAskedEvent, QuestionAskedEvent } from "@fishes/sdk";
 import { InteractionPrompt } from "./InteractionPrompt";
 
 const singleQ: QuestionAskedEvent = {
@@ -84,5 +84,28 @@ describe("InteractionPrompt — permission", () => {
     expect(onPermission).toHaveBeenCalledWith("per_1", "always");
     await userEvent.click(screen.getByRole("button", { name: "Reject" }));
     expect(onPermission).toHaveBeenCalledWith("per_1", "reject");
+  });
+});
+
+describe("InteractionPrompt — full-access shortcut", () => {
+  it("offers switching to full access from the prompt itself", async () => {
+    const perm: PermissionAskedEvent = {
+      type: "permission.asked",
+      sessionId: "ses_1",
+      requestId: "perm_9",
+      action: "bash",
+      resources: ["pip install statsmodels"],
+    };
+    const onReply = vi.fn();
+    const setApprovalMode = vi.fn(async () => {});
+    const { useRuntimeStore } = await import("@/lib/runtime");
+    useRuntimeStore.setState({ setApprovalMode });
+    render(
+      <InteractionPrompt permission={perm} onAnswer={noop} onReject={noop} onPermission={onReply} />,
+    );
+    await userEvent.click(screen.getByText("Switch to full access"));
+    // Approves the pending request AND flips the mode — the last prompt ever.
+    expect(onReply).toHaveBeenCalledWith("perm_9", "once");
+    expect(setApprovalMode).toHaveBeenCalledWith("full");
   });
 });

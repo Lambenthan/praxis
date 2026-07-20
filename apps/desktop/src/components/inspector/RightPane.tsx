@@ -35,11 +35,19 @@ export function RightPane({
   // (possibly for a different artifact or session) to the normal split.
   useEffect(() => () => setInspectorMaximized(false), [setInspectorMaximized]);
 
+  // Track the viewport width so the pane's rendered width is re-clamped when the
+  // window resizes OR the user zooms (zoom shrinks the CSS viewport and fires a
+  // resize) — otherwise a persisted wide pane keeps its px width and squeezes the
+  // conversation down to nothing.
+  const [vw, setVw] = useState(() => (typeof window !== "undefined" ? window.innerWidth : 1440));
+  useEffect(() => {
+    const onResize = () => setVw(window.innerWidth);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
   const clamp = (w: number) =>
-    Math.max(
-      INSPECTOR_MIN,
-      Math.min(w, INSPECTOR_MAX, Math.round(window.innerWidth * MAX_FRACTION)),
-    );
+    Math.max(INSPECTOR_MIN, Math.min(w, INSPECTOR_MAX, Math.round(vw * MAX_FRACTION)));
 
   const onDividerPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -76,7 +84,7 @@ export function RightPane({
   return (
     <div
       className="relative hidden h-full shrink-0 lg:block"
-      style={{ width: dragWidth ?? inspectorWidth }}
+      style={{ width: clamp(dragWidth ?? inspectorWidth) }}
     >
       <div className="h-full">{children}</div>
       {/* Drag divider: resize within [INSPECTOR_MIN, INSPECTOR_MAX]; dragging

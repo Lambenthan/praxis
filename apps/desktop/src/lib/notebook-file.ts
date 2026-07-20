@@ -1,11 +1,15 @@
-import type { NotebookCell } from "@ai4s/shared";
+import type { NotebookCell } from "@fishes/shared";
 import { isCodeLanguage, type KernelLanguage } from "./kernel";
 
 /** Minimal nbformat-4 shapes we read and write. */
 interface IpynbOutput {
   output_type: string;
   text?: string | string[];
-  data?: { "text/plain"?: string | string[]; "image/png"?: string | string[] };
+  data?: {
+    "text/plain"?: string | string[];
+    "text/html"?: string | string[];
+    "image/png"?: string | string[];
+  };
   ename?: string;
   evalue?: string;
   traceback?: string[];
@@ -46,14 +50,24 @@ export function notebookLanguage(json: string): KernelLanguage {
   return name === "r" || name === "ir" ? "r" : "python";
 }
 
-function outputsOf(outputs: IpynbOutput[] | undefined): { text?: string; image?: string } {
+function outputsOf(
+  outputs: IpynbOutput[] | undefined,
+): { text?: string; image?: string; html?: string } {
   if (!outputs?.length) return {};
   let image: string | undefined;
+  let html: string | undefined;
   const parts = outputs.map((o) => {
     if (o.output_type === "stream") return joinSource(o.text);
     if (o.output_type === "execute_result" || o.output_type === "display_data") {
       const png = joinSource(o.data?.["image/png"]).replace(/\n/g, "");
       if (png && !image) image = png; // keep the first figure
+      const rich = joinSource(o.data?.["text/html"]);
+      // A rich table (pandas etc.) supersedes its own text/plain repr — keep the
+      // HTML and drop the ASCII fallback so we don't render both.
+      if (rich) {
+        if (!html) html = rich;
+        return "";
+      }
       return joinSource(o.data?.["text/plain"]);
     }
     if (o.output_type === "error")
@@ -64,7 +78,7 @@ function outputsOf(outputs: IpynbOutput[] | undefined): { text?: string; image?:
     .map((p) => p.trimEnd())
     .filter(Boolean)
     .join("\n");
-  return { text: text || undefined, image };
+  return { text: text || undefined, image, html };
 }
 
 /** Parse .ipynb JSON into the app's cell model. Throws on non-notebook JSON. */
@@ -80,6 +94,7 @@ export function parseIpynb(json: string): NotebookCell[] {
       code: joinSource(cell.source),
       output: out.text,
       image: out.image,
+      html: out.html,
     };
   });
 }

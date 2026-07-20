@@ -1,3 +1,4 @@
+import { useCallback } from "react";
 import { create } from "zustand";
 import { zh } from "./zh";
 
@@ -40,6 +41,29 @@ export const useLocaleStore = create<LocaleState>((set) => ({
   },
 }));
 
+/**
+ * Correct the default language from the OS. WKWebView's navigator.language
+ * follows the APP's declared localizations, not the system — a zh_CN mac
+ * reports "en-US" (user hit this: a fresh install came up all-English). When
+ * the user has made NO explicit choice, ask the OS through Tauri and fix the
+ * in-memory default only — nothing is persisted, so a stored choice always
+ * wins and the default keeps tracking the system.
+ */
+export async function syncLocaleWithSystem(): Promise<void> {
+  try {
+    const stored = localStorage.getItem(LOCALE_KEY);
+    if (stored === "en" || stored === "zh") return; // explicit choice wins
+  } catch {
+    return; // tests / storage unavailable — leave the default alone
+  }
+  const { isTauri } = await import("@/lib/tauri");
+  if (!isTauri) return;
+  const { invoke } = await import("@tauri-apps/api/core");
+  const zhSystem = await invoke<boolean>("system_locale_is_chinese").catch(() => false);
+  const want: Locale = zhSystem ? "zh" : "en";
+  if (useLocaleStore.getState().locale !== want) useLocaleStore.setState({ locale: want });
+}
+
 export function translate(source: string, locale: Locale): string {
   return locale === "zh" ? (zh[source] ?? source) : source;
 }
@@ -47,7 +71,9 @@ export function translate(source: string, locale: Locale): string {
 /** Reactive translator for components — re-renders on locale change. */
 export function useT(): (source: string) => string {
   const locale = useLocaleStore((s) => s.locale);
-  return (source) => translate(source, locale);
+  // Memoized: components put `t` in effect deps — a fresh closure per render
+  // re-ran those effects on EVERY render (the wiki card reload loop).
+  return useCallback((source) => translate(source, locale), [locale]);
 }
 
 /** Non-reactive translator for rare non-component call sites. */

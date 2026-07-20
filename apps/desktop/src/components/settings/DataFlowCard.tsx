@@ -18,10 +18,10 @@ export function DataFlowCard({ model, workspace }: { model: string | null; works
       </header>
       <div className="grid gap-5 px-5 py-4 sm:grid-cols-2">
         <div>
-          <div className="flex items-center gap-1.5 text-[13px] font-medium text-text">
+          <div className="flex items-center gap-1.5 text-[14px] font-medium text-text">
             <HardDrive size={14} className="text-ok" /> {t("Stays on this machine")}
           </div>
-          <ul className="mt-2 list-disc space-y-1.5 pl-4 text-[13px] leading-relaxed text-muted">
+          <ul className="mt-2 list-disc space-y-1.5 pl-4 text-[14px] leading-relaxed text-muted">
             <li>
               {t("Your workspace files and raw data")}
               {workspace && <span className="font-mono text-xs"> ({workspace})</span>}.
@@ -40,13 +40,13 @@ export function DataFlowCard({ model, workspace }: { model: string | null; works
           </ul>
         </div>
         <div>
-          <div className="flex items-center gap-1.5 text-[13px] font-medium text-text">
+          <div className="flex items-center gap-1.5 text-[14px] font-medium text-text">
             <Send size={14} className="text-warn" /> {t("Sent to your model provider")}
             <span className="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-xs text-muted">
               {model ?? t("no model configured")}
             </span>
           </div>
-          <ul className="mt-2 list-disc space-y-1.5 pl-4 text-[13px] leading-relaxed text-muted">
+          <ul className="mt-2 list-disc space-y-1.5 pl-4 text-[14px] leading-relaxed text-muted">
             <li>
               {t(
                 "Your messages, and the file contents / command output the agent reads to do the task you asked for.",

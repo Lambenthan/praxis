@@ -51,7 +51,7 @@ export function PhaseView({ filename, text }: { filename: string; text: string }
   return (
     <div className="flex h-full flex-col bg-surface">
       <div className="flex items-center gap-2 border-b border-border px-3 py-2">
-        <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-muted">
+        <span className="min-w-0 flex-1 truncate font-mono text-[12px] text-muted">
           {filename} · {pd.elements[0]}–{pd.elements[1]} · {pd.entries.length} {t("phases")} ·{" "}
           {pd.entries.filter((e) => e.stable).length} {t("stable")}
         </span>
@@ -107,10 +107,10 @@ export function PhaseView({ filename, text }: { filename: string; text: string }
             );
           })}
           {/* x labels: pure endpoints */}
-          <text x={xAt(0)} y={H - pad.b + 16} textAnchor="middle" className="fill-muted font-mono text-[11px]">
+          <text x={xAt(0)} y={H - pad.b + 16} textAnchor="middle" className="fill-muted font-mono text-[12px]">
             {pd.elements[0]}
           </text>
-          <text x={xAt(1)} y={H - pad.b + 16} textAnchor="middle" className="fill-muted font-mono text-[11px]">
+          <text x={xAt(1)} y={H - pad.b + 16} textAnchor="middle" className="fill-muted font-mono text-[12px]">
             {pd.elements[1]}
           </text>
           <text x={W / 2} y={H - 6} textAnchor="middle" className="fill-muted font-mono text-[10px]">
@@ -122,7 +122,7 @@ export function PhaseView({ filename, text }: { filename: string; text: string }
         </svg>
       </div>
 
-      <div className="border-t border-border px-3 py-2 text-right font-mono text-[11px] text-muted">
+      <div className="border-t border-border px-3 py-2 text-right font-mono text-[12px] text-muted">
         {hover ? (
           (() => {
             const e = pd.entries.find((x) => x.formula === hover)!;

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { ChevronDown, ChevronRight, Loader2, MessageSquare, Package, RotateCcw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import type { ProvenanceRecord } from "@ai4s/shared";
+import type { ProvenanceRecord } from "@fishes/shared";
 import { listProvenance, readEnvLockfile } from "@/lib/provenance";
 import { useUiStore } from "@/lib/store";
 import { CodeViewer } from "@/components/code-viewer/CodeViewer";
@@ -179,7 +179,7 @@ export function ProvenancePanel({ path, language }: { path: string; language?: s
                 </div>
                 {r.env?.packages && lockfile?.hash === r.env.packages.hash && (
                   <div className="rounded-input border border-border bg-surface-2">
-                    <div className="border-b border-border px-2.5 py-1 text-[11px] text-muted">
+                    <div className="border-b border-border px-2.5 py-1 text-[12px] text-muted">
                       {t("pip freeze")} · {r.env.packages.count} {t("packages")}
                     </div>
                     {lockfile.text === null ? (
@@ -187,7 +187,7 @@ export function ProvenancePanel({ path, language }: { path: string; language?: s
                         <Loader2 size={12} className="animate-spin" /> {t("Loading…")}
                       </div>
                     ) : (
-                      <pre className="max-h-48 overflow-auto px-2.5 py-2 font-mono text-[11px] leading-relaxed text-text">
+                      <pre className="max-h-48 overflow-auto px-2.5 py-2 font-mono text-[12px] leading-relaxed text-text">
                         {lockfile.text}
                       </pre>
                     )}

@@ -112,7 +112,7 @@ function Map({ filename, grid }: { filename: string; grid: AnomalyGrid }) {
   return (
     <div className="flex h-full flex-col bg-[#0f1320]">
       <div className="flex items-center gap-2 border-b border-white/10 bg-black/20 px-3 py-2">
-        <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-white/50">
+        <span className="min-w-0 flex-1 truncate font-mono text-[12px] text-white/50">
           {filename} · {cols}×{rows} {t("grid")}{grid.unit ? ` · ${grid.unit}` : ""}
         </span>
       </div>
@@ -159,7 +159,7 @@ function Map({ filename, grid }: { filename: string; grid: AnomalyGrid }) {
 
       <div className="flex items-center gap-3 border-t border-white/10 px-3 py-2">
         <Colorbar absMax={grid.absMax} unit={grid.unit} />
-        <div className="ml-auto min-h-[1.25rem] text-right font-mono text-[11px] text-white/70">
+        <div className="ml-auto min-h-[1.25rem] text-right font-mono text-[12px] text-white/70">
           {hover ? (
             <>
               {fmtLat(hover.lat)}, {fmtLon(hover.lon)} ·{" "}

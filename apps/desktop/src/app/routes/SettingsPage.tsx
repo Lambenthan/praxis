@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
+  ArrowRight,
   Check,
   ChevronRight,
   Download,
@@ -10,12 +12,14 @@ import {
   Search,
 } from "lucide-react";
 import type {
+  AgentConfigEntry,
   McpServer,
   OAuthAuthorization,
   ProviderAuthMethod,
   ProviderCatalogEntry,
   ProviderInfo,
-} from "@ai4s/sdk";
+  ReasoningEffort,
+} from "@fishes/sdk";
 import { useUiStore } from "@/lib/store";
 import { useLocaleStore, useT } from "@/lib/i18n";
 import { getClient, useRuntimeStore } from "@/lib/runtime";
@@ -34,33 +38,52 @@ import {
   type JupyterStatus,
 } from "@/lib/tauri";
 import { setupScienceMcp } from "@/lib/tauri";
-import { ClusterCard } from "@/components/settings/ClusterCard";
 import { ModelPicker } from "@/components/settings/ModelPicker";
-import { ModalCard } from "@/components/settings/ModalCard";
-import { DataFlowCard } from "@/components/settings/DataFlowCard";
 import { SCIENCE_CONNECTORS, connectorConfig } from "@/lib/scienceConnectors";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/cn";
+import {
+  SettingsNav,
+  readSettingsTab,
+  writeSettingsTab,
+  type SettingsSectionId,
+} from "@/features/settings/SettingsNav";
+import { SettingsSection as Card } from "@/features/settings/SettingsSection";
+import { SettingRow } from "@/features/settings/SettingRow";
+import { useZoomStore, ZOOM_STEPS } from "@/lib/zoom";
+import { AboutSection } from "@/features/settings/AboutSection";
+import { PermissionsSection } from "@/features/settings/PermissionsSection";
+import { inputCls, btnGhost, btnAccent } from "@/features/settings/controls";
 
 /**
  * Settings. ONE configuration surface: everything talks to the bundled
  * OpenCode's own config/auth API — no separate "model key" concept.
  */
 export function SettingsPage() {
+  const navigate = useNavigate();
   const theme = useUiStore((s) => s.theme);
   const setTheme = useUiStore((s) => s.setTheme);
   const locale = useLocaleStore((s) => s.locale);
   const setLocale = useLocaleStore((s) => s.setLocale);
   const t = useT();
-  const { status, serverUrl, setServerUrl, connect, disconnect, defaultModel, loadCatalog } =
+  const { status, serverUrl, setServerUrl, connect, disconnect, defaultModel, agents, loadCatalog } =
     useRuntimeStore();
   const connected = status === "ready";
+
+  // Which section the right pane shows. Persisted like CS's settings tab.
+  const [tab, setTab] = useState<SettingsSectionId>(readSettingsTab);
+  const selectTab = (id: SettingsSectionId) => {
+    setTab(id);
+    writeSettingsTab(id);
+  };
 
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
   const [authMethods, setAuthMethods] = useState<Record<string, ProviderAuthMethod[]>>({});
   const [catalog, setCatalog] = useState<ProviderCatalogEntry[]>([]);
   const [customIds, setCustomIds] = useState<string[]>([]);
   const [mcpServers, setMcpServers] = useState<McpServer[]>([]);
+  // Per-agent config overrides Fishes has written (model / reasoningEffort).
+  const [agentCfg, setAgentCfg] = useState<Record<string, AgentConfigEntry>>({});
   const [jupyter, setJupyter] = useState<JupyterStatus | null>(null);
   const [settingUpJupyter, setSettingUpJupyter] = useState(false);
   // Which curated science connector is currently being provisioned, by id.
@@ -101,18 +124,20 @@ export function SettingsPage() {
     const client = getClient();
     if (!client) return;
     try {
-      const [p, m, c, custom, mcp] = await Promise.all([
+      const [p, m, c, custom, mcp, aCfg] = await Promise.all([
         client.listProviders(),
         client.listAuthMethods(),
         client.listProviderCatalog(),
         client.listCustomProviderIds(),
         client.listMcpServers().catch(() => []),
+        client.getAgentConfigs().catch(() => ({})),
       ]);
       setProviders(p);
       setAuthMethods(m);
       setCatalog(c.all);
       setCustomIds(custom);
       setMcpServers(mcp);
+      setAgentCfg(aCfg);
       setJupyter(await jupyterStatus());
     } catch {
       /* runtime not ready yet */
@@ -170,6 +195,34 @@ export function SettingsPage() {
     run(t("Could not set the model"), async () => {
       if (model) await getClient()!.setDefaultModel(model);
       toast.success(`${t("Default model set to")} ${model}`);
+    });
+
+  // Reasoning effort applies to the agents the user directly drives (primary /
+  // "all" mode); dispatched worker subagents are governed by "Subagent model".
+  const primaryAgents = agents.filter((a) => a.mode !== "subagent").map((a) => a.name);
+  const subagents = agents.filter((a) => a.mode === "subagent").map((a) => a.name);
+  // Current effort = the value shared by the primary agents (undefined if none set).
+  const currentEffort: ReasoningEffort | undefined = primaryAgents
+    .map((n) => agentCfg[n]?.reasoningEffort)
+    .find((e): e is ReasoningEffort => Boolean(e));
+  // Current subagent model = the one shared by the subagents (undefined if none set).
+  const currentSubagentModel: string | undefined = subagents
+    .map((n) => agentCfg[n]?.model)
+    .find((mdl): mdl is string => Boolean(mdl));
+
+  const saveReasoningEffort = (effort: ReasoningEffort) =>
+    run(t("Could not set the reasoning effort"), async () => {
+      const patch = Object.fromEntries(primaryAgents.map((n) => [n, { reasoningEffort: effort }]));
+      await getClient()!.setAgentConfigs(patch);
+      toast.success(`${t("Reasoning effort set to")} ${effort}`);
+    });
+
+  const saveSubagentModel = (model: string) =>
+    run(t("Could not set the subagent model"), async () => {
+      if (!model) return;
+      const patch = Object.fromEntries(subagents.map((n) => [n, { model }]));
+      await getClient()!.setAgentConfigs(patch);
+      toast.success(`${t("Subagent model set to")} ${model}`);
     });
 
   const saveKey = (providerID: string) =>
@@ -366,14 +419,53 @@ export function SettingsPage() {
     : [];
 
   return (
-    <div className="h-full overflow-y-auto">
-      <div className="mx-auto max-w-2xl px-8 pb-16 pt-8">
-        <h1 className="font-serif text-xl text-text">{t("Settings")}</h1>
-        <p className="mt-0.5 text-xs text-muted">
-          {t("Everything here configures the bundled OpenCode runtime — one config, no copies.")}
-        </p>
+    <div className="flex h-full flex-col">
+      <div className="shrink-0 px-8 pb-4 pt-8">
+        <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted">
+          {t("Workbench")}
+        </div>
+        <h1 className="mt-2 font-serif text-[22px] leading-tight text-text">{t("Settings")}</h1>
+      </div>
+      <div className="flex min-h-0 flex-1 border-t border-border">
+        <SettingsNav active={tab} onSelect={selectTab} t={t} />
+        <div className="min-w-0 flex-1 overflow-y-auto">
+          <div className="mx-auto max-w-2xl px-8 pb-16 pt-8">
+
+        {/* ---- General (appearance) ---- */}
+        {tab === "general" && (
+          <Card title={t("General")} hint={t("Appearance and app-wide preferences.")}>
+            <SettingRow
+              label={t("Theme")}
+              description={t("Match the app to your preferred light or dark appearance.")}
+              control={
+                <div className="inline-flex rounded-input border border-border bg-surface-2 p-0.5">
+                  {(["light", "dark"] as const).map((opt) => (
+                    <button
+                      key={opt}
+                      onClick={() => setTheme(opt)}
+                      className={cn(
+                        "rounded-[5px] px-4 py-1.5 text-[15px] capitalize transition-colors",
+                        theme === opt
+                          ? "bg-surface text-text shadow-card"
+                          : "text-muted hover:text-text",
+                      )}
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+              }
+            />
+            <SettingRow
+              label={t("Text size")}
+              description={t("Scale the whole interface. Shortcuts: ⌘+ / ⌘− / ⌘0 (Ctrl on Windows), just like a browser.")}
+              control={<ZoomControl />}
+            />
+          </Card>
+        )}
 
         {/* ---- Agent runtime ---- */}
+        {tab === "runtime" && (
         <Card title={t("Agent runtime")} hint={t("opencode serve, driven over its HTTP + SSE API")}>
           <div className="flex items-center gap-2">
             <input
@@ -408,39 +500,88 @@ export function SettingsPage() {
             )}
           </div>
         </Card>
+        )}
 
         {/* ---- Models & providers ---- */}
+        {tab === "model" && (
         <Card title={t("Model")} hint={t("Providers below supply the models you can pick here")}>
           {!connected ? (
-            <p className="text-[13px] text-muted">{t("Connect the runtime to configure models.")}</p>
+            <div className="space-y-3">
+              <p className="text-[15px] text-muted">
+                {t("No model connected yet. Open the setup guide and paste your key there.")}
+              </p>
+              <button
+                onClick={() => navigate("/setup")}
+                className="flex h-9 items-center gap-1.5 rounded-input bg-accent px-3.5 text-[15px] font-medium text-accent-fg transition-opacity hover:opacity-90"
+              >
+                {t("Open the setup guide")} <ArrowRight size={14} />
+              </button>
+            </div>
           ) : (
             <>
-              <ModelPicker
-                providers={providers}
-                value={defaultModel}
-                onChange={(v) => void saveModel(v)}
-                disabled={busy}
+              <SettingRow
+                label={t("Default model")}
+                description={t("The model new sessions use. Providers below supply the choices.")}
+                below={
+                  <ModelPicker
+                    providers={providers}
+                    value={defaultModel}
+                    onChange={(v) => void saveModel(v)}
+                    disabled={busy}
+                  />
+                }
               />
+
+              {primaryAgents.length > 0 && (
+                <SettingRow
+                  label={t("Reasoning effort")}
+                  description={t(
+                    "How hard a reasoning model thinks before answering. Ignored by models without a reasoning mode. Takes effect on new turns.",
+                  )}
+                  control={
+                    <EffortPicker
+                      value={currentEffort}
+                      onChange={(e) => void saveReasoningEffort(e)}
+                      disabled={busy}
+                      t={t}
+                    />
+                  }
+                />
+              )}
+
+              {subagents.length > 0 && (
+                <SettingRow
+                  label={t("Subagent model")}
+                  description={t(
+                    "The model dispatched worker subagents use. Leave unset to inherit the main model.",
+                  )}
+                  below={
+                    <ModelPicker
+                      providers={providers}
+                      value={currentSubagentModel ?? null}
+                      onChange={(v) => void saveSubagentModel(v)}
+                      disabled={busy}
+                    />
+                  }
+                />
+              )}
 
               <Divider label={t("Providers")} />
 
-              <div className="overflow-hidden rounded-input border border-border">
-                {providers.map((p, i) => (
+              <div className="divide-y divide-border overflow-hidden rounded-input border border-border">
+                {providers.map((p) => (
                   <div
                     key={p.id}
-                    className={cn(
-                      "flex h-10 items-center gap-2.5 bg-surface px-3 text-[13px]",
-                      i > 0 && "border-t border-border",
-                    )}
+                    className="flex items-center gap-2.5 bg-surface px-3 py-3 text-[15px]"
                   >
                     <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-ok" />
                     <span className="font-medium text-text">{p.name}</span>
-                    <span className="text-xs text-muted">
+                    <div className="flex-1" />
+                    <span className="text-[12px] tabular-nums text-muted">
                       {p.models.length} {t(p.models.length === 1 ? "model" : "models")}
                     </span>
-                    <div className="flex-1" />
                     {p.id === "opencode" ? (
-                      <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[10px] uppercase tracking-wide text-muted ring-1 ring-border">
+                      <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] uppercase tracking-wide text-muted ring-1 ring-border">
                         {t("built-in · free")}
                       </span>
                     ) : (
@@ -457,7 +598,7 @@ export function SettingsPage() {
                 ))}
 
                 {/* Connect a provider */}
-                <div className="border-t border-border bg-surface-2/50 p-3">
+                <div className="bg-surface-2/50 p-3">
                   <div className="relative">
                     <Search
                       size={13}
@@ -589,9 +730,9 @@ export function SettingsPage() {
                 </div>
 
                 {/* Custom endpoint */}
-                <div className="border-t border-border">
+                <div>
                   <button
-                    className="flex h-10 w-full items-center gap-2 px-3 text-left text-[13px] text-muted transition-colors hover:text-text"
+                    className="flex h-10 w-full items-center gap-2 px-3 text-left text-[15px] text-muted transition-colors hover:text-text"
                     onClick={() => setShowCustom((s) => !s)}
                     aria-expanded={showCustom}
                   >
@@ -664,38 +805,37 @@ export function SettingsPage() {
             </>
           )}
         </Card>
+        )}
 
-        {/* ---- MCP servers ---- */}
+        {/* ---- Connectors (MCP servers) ---- */}
+        {tab === "connectors" && (
         <Card
           title={t("MCP servers")}
           hint={t("Extra tools for the agent (Model Context Protocol) — e.g. a Jupyter or browser MCP")}
         >
           {!connected ? (
-            <p className="text-[13px] text-muted">{t("Connect the runtime to configure MCP servers.")}</p>
+            <p className="text-[15px] text-muted">{t("Connect the runtime to configure MCP servers.")}</p>
           ) : (
-            <div className="overflow-hidden rounded-input border border-border">
+            <div className="divide-y divide-border overflow-hidden rounded-input border border-border">
               {/* Curated open-source science connectors — one-click enable. */}
               {isTauri &&
                 SCIENCE_CONNECTORS.filter((c) => !mcpServers.some((s) => s.name === c.id)).map(
                   (c) => {
                     const keyMissing = Boolean(c.apiKeyEnv) && !connectorKeys[c.id]?.trim();
                     return (
-                      <div
-                        key={c.id}
-                        className="border-b border-border bg-surface px-3 py-2.5 text-[13px]"
-                      >
+                      <div key={c.id} className="bg-surface px-3 py-3 text-[15px]">
                         <div className="flex items-center gap-2.5">
                           <Search size={14} className="shrink-0 text-muted" />
                           <div className="min-w-0 flex-1">
                             <span className="font-medium text-text">{t(c.label)}</span>
-                            <span className="ml-2 rounded bg-surface-2 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted ring-1 ring-border">
+                            <span className="ml-2 rounded bg-surface-2 px-1.5 py-0.5 text-[11px] uppercase tracking-wide text-muted ring-1 ring-border">
                               {t(c.discipline)}
                             </span>
-                            <span className="ml-1.5 rounded bg-surface-2 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted ring-1 ring-border">
+                            <span className="ml-1.5 rounded bg-surface-2 px-1.5 py-0.5 text-[11px] uppercase tracking-wide text-muted ring-1 ring-border">
                               {t("open source")}
                             </span>
                             <div className="truncate text-xs text-muted">{t(c.description)}</div>
-                            <div className="truncate font-mono text-[11px] text-muted/70">
+                            <div className="truncate font-mono text-[12px] text-muted/70">
                               {c.source}
                               {c.installNote ? ` · ${t(c.installNote)}` : ""}
                             </div>
@@ -731,7 +871,7 @@ export function SettingsPage() {
                                 href={c.apiKeyUrl}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="inline-flex items-center gap-1 whitespace-nowrap text-[11px] text-accent hover:underline"
+                                className="inline-flex items-center gap-1 whitespace-nowrap text-[12px] text-accent hover:underline"
                               >
                                 <ExternalLink size={11} /> {t("Get a free key")}
                               </a>
@@ -744,7 +884,7 @@ export function SettingsPage() {
                 )}
               {/* Featured: one-click Jupyter (shown until its MCP entry exists). */}
               {isTauri && !mcpServers.some((s) => s.name === "jupyter") && (
-                <div className="flex items-center gap-2.5 border-b border-border bg-surface px-3 py-2.5 text-[13px]">
+                <div className="flex items-center gap-2.5 bg-surface px-3 py-3 text-[15px]">
                   <NotebookPen size={14} className="shrink-0 text-muted" />
                   <div className="min-w-0 flex-1">
                     <span className="font-medium text-text">Jupyter</span>
@@ -769,13 +909,10 @@ export function SettingsPage() {
                   </button>
                 </div>
               )}
-              {mcpServers.map((s, i) => (
+              {mcpServers.map((s) => (
                 <div
                   key={s.name}
-                  className={cn(
-                    "flex h-10 items-center gap-2.5 bg-surface px-3 text-[13px]",
-                    i > 0 && "border-t border-border",
-                  )}
+                  className="flex items-center gap-2.5 bg-surface px-3 py-3 text-[15px]"
                 >
                   <span
                     className={cn(
@@ -791,7 +928,7 @@ export function SettingsPage() {
                   <span className="text-xs text-muted">
                     {s.config?.type ?? "?"} · {s.status}
                   </span>
-                  <span className="max-w-[260px] flex-1 truncate text-right font-mono text-[11px] text-muted/70">
+                  <span className="max-w-[260px] flex-1 truncate text-right font-mono text-[12px] tabular-nums text-muted/70">
                     {s.config?.type === "local"
                       ? s.config.command.join(" ")
                       : s.config?.type === "remote"
@@ -808,12 +945,7 @@ export function SettingsPage() {
                 </div>
               ))}
 
-              <div
-                className={cn(
-                  "space-y-2 bg-surface-2/50 p-3",
-                  mcpServers.length > 0 && "border-t border-border",
-                )}
-              >
+              <div className="space-y-2 bg-surface-2/50 p-3">
                 <div className="flex gap-2">
                   <input
                     value={mName}
@@ -849,135 +981,178 @@ export function SettingsPage() {
             </div>
           )}
         </Card>
+        )}
 
-        {/* ---- Workspace ---- */}
+        {/* Cluster (HPC), Modal compute and the data-flow explainer are
+            deliberately NOT rendered yet — features ahead of the product's
+            current audience. The components remain in the tree for when
+            they're wanted back. */}
+
+        {/* ---- Data (workspace folder) ---- */}
+        {tab === "data" && (
         <Card
-          title={t("Workspace")}
+          title={t("Data")}
           hint={t("Local-first — each session works in its own dated subfolder created here")}
         >
-          <div className="flex items-center gap-2">
-            <span
-              className={cn(
-                inputCls("flex-1 truncate font-mono leading-9"),
-                "select-all bg-surface-2 text-muted",
-              )}
-            >
-              {wsPath ?? t("available in the desktop app")}
-            </span>
-            {wsPath && (
-              <>
-                <button className={btnGhost("gap-1.5")} onClick={() => void changeWorkspaceBase()}>
-                  {t("Change…")}
-                </button>
-                <button className={btnGhost("gap-1.5")} onClick={() => void openWorkspaceBase()}>
-                  <FolderOpen size={13} /> {t("Reveal")}
-                </button>
-              </>
-            )}
-          </div>
-        </Card>
-
-        {/* ---- Cluster (HPC) ---- */}
-        <ClusterCard />
-
-        <ModalCard />
-
-        {/* ---- Privacy & data flow ---- */}
-        <DataFlowCard model={defaultModel} workspace={wsPath} />
-
-        {/* ---- Appearance ---- */}
-        <Card title={t("Appearance")}>
-          <div className="inline-flex rounded-input border border-border bg-surface-2 p-0.5">
-            {(["light", "dark"] as const).map((t) => (
-              <button
-                key={t}
-                onClick={() => setTheme(t)}
-                className={cn(
-                  "rounded-[5px] px-4 py-1.5 text-[13px] capitalize transition-colors",
-                  theme === t ? "bg-surface text-text shadow-card" : "text-muted hover:text-text",
+          <SettingRow
+            label={t("Workspace folder")}
+            description={t("The base folder new sessions are created under.")}
+            below={
+              <div className="flex items-center gap-2">
+                <span
+                  className={cn(
+                    inputCls("flex-1 truncate font-mono leading-9"),
+                    "select-all bg-surface-2 text-muted",
+                  )}
+                >
+                  {wsPath ?? t("available in the desktop app")}
+                </span>
+                {wsPath && (
+                  <>
+                    <button className={btnGhost("gap-1.5")} onClick={() => void changeWorkspaceBase()}>
+                      {t("Change…")}
+                    </button>
+                    <button className={btnGhost("gap-1.5")} onClick={() => void openWorkspaceBase()}>
+                      <FolderOpen size={13} /> {t("Reveal")}
+                    </button>
+                  </>
                 )}
-              >
-                {t}
-              </button>
-            ))}
-          </div>
+              </div>
+            }
+          />
         </Card>
+        )}
 
         {/* ---- Language ---- */}
-        <Card title={t("Language")}>
-          <div className="inline-flex rounded-input border border-border bg-surface-2 p-0.5">
-            {(
-              [
-                { value: "en" as const, label: "English" },
-                { value: "zh" as const, label: "中文" },
-              ]
-            ).map((option) => (
-              <button
-                key={option.value}
-                onClick={() => setLocale(option.value)}
-                className={cn(
-                  "rounded-[5px] px-4 py-1.5 text-[13px] transition-colors",
-                  locale === option.value ? "bg-surface text-text shadow-card" : "text-muted hover:text-text",
-                )}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
+        {tab === "language" && (
+        <Card title={t("Language")} hint={t("The language Fishes's own interface is shown in.")}>
+          <SettingRow
+            label={t("Interface language")}
+            description={t("Applies to Fishes's menus and labels, not your chats.")}
+            control={
+              <div className="inline-flex rounded-input border border-border bg-surface-2 p-0.5">
+                {(
+                  [
+                    { value: "en" as const, label: "English" },
+                    { value: "zh" as const, label: "中文" },
+                  ]
+                ).map((option) => (
+                  <button
+                    key={option.value}
+                    onClick={() => setLocale(option.value)}
+                    className={cn(
+                      "rounded-[5px] px-4 py-1.5 text-[15px] transition-colors",
+                      locale === option.value
+                        ? "bg-surface text-text shadow-card"
+                        : "text-muted hover:text-text",
+                    )}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            }
+          />
         </Card>
+        )}
+
+        {/* ---- About ---- */}
+        {tab === "about" && <AboutSection />}
+
+        {/* ---- Permissions ---- */}
+        {tab === "permissions" && <PermissionsSection />}
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
-/* ---- Shared bits: one look for every control on this page ---- */
-
-const inputCls = (extra = "") =>
-  cn(
-    "h-9 rounded-input border border-border bg-surface px-3 text-[13px] text-text outline-none",
-    "placeholder:text-muted focus:border-accent/60",
-    extra,
-  );
-
-const btnGhost = (extra = "") =>
-  cn(
-    "flex h-9 shrink-0 items-center gap-1 rounded-input border border-border bg-surface px-3.5",
-    "text-[13px] text-text transition-colors hover:bg-surface-2 disabled:opacity-50",
-    extra,
-  );
-
-const btnAccent = (extra = "") =>
-  cn(
-    "flex h-9 shrink-0 items-center gap-1.5 rounded-input bg-accent px-3.5 text-[13px] font-medium",
-    "text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-50",
-    extra,
-  );
-
-function Card({
-  title,
-  hint,
-  children,
-}: {
-  title: string;
-  hint?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="mt-5 rounded-card border border-border bg-surface shadow-card">
-      <header className="border-b border-border px-5 py-3">
-        <h2 className="font-serif text-[15px] text-text">{title}</h2>
-        {hint && <p className="mt-0.5 text-xs text-muted">{hint}</p>}
-      </header>
-      <div className="px-5 py-4">{children}</div>
-    </section>
-  );
-}
+/* ---- Local bit: the providers divider used only in the Model section ---- */
 
 function Divider({ label }: { label: string }) {
   return (
     <div className="mb-3 mt-5 flex items-center gap-3">
-      <span className="text-xs font-medium uppercase tracking-wider text-muted">{label}</span>
+      <span className="text-[11px] font-medium uppercase tracking-wide text-muted">{label}</span>
       <span className="h-px flex-1 bg-border" />
+    </div>
+  );
+}
+
+/* ---- Local bit: the reasoning-effort segmented control (Model section) ---- */
+
+const EFFORT_LEVELS: ReasoningEffort[] = ["minimal", "low", "medium", "high"];
+
+function EffortPicker({
+  value,
+  onChange,
+  disabled,
+  t,
+}: {
+  value: ReasoningEffort | undefined;
+  onChange: (e: ReasoningEffort) => void;
+  disabled: boolean;
+  t: (s: string) => string;
+}) {
+  return (
+    <div className="inline-flex rounded-input border border-border bg-surface-2 p-0.5">
+      {EFFORT_LEVELS.map((level) => (
+        <button
+          key={level}
+          onClick={() => onChange(level)}
+          disabled={disabled}
+          className={cn(
+            "rounded-[5px] px-3 py-1.5 text-[13px] capitalize transition-colors disabled:opacity-50",
+            value === level ? "bg-surface text-text shadow-card" : "text-muted hover:text-text",
+          )}
+        >
+          {t(level)}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** Browser-style zoom stepper: − [percent] +, with a Reset when off 100%. */
+function ZoomControl() {
+  const t = useT();
+  const zoom = useZoomStore((s) => s.zoom);
+  const zoomIn = useZoomStore((s) => s.zoomIn);
+  const zoomOut = useZoomStore((s) => s.zoomOut);
+  const resetZoom = useZoomStore((s) => s.resetZoom);
+  const atMin = zoom <= ZOOM_STEPS[0];
+  const atMax = zoom >= ZOOM_STEPS[ZOOM_STEPS.length - 1];
+  return (
+    <div className="inline-flex items-center gap-2">
+      <div className="inline-flex items-center rounded-input border border-border bg-surface-2 p-0.5">
+        <button
+          onClick={zoomOut}
+          disabled={atMin}
+          aria-label={t("Zoom out")}
+          className="rounded-[5px] px-3 py-1.5 text-[15px] leading-none text-muted transition-colors hover:text-text disabled:opacity-40"
+        >
+          −
+        </button>
+        <span className="min-w-[3.5rem] text-center text-[14px] tabular-nums text-text">
+          {Math.round(zoom * 100)}%
+        </span>
+        <button
+          onClick={zoomIn}
+          disabled={atMax}
+          aria-label={t("Zoom in")}
+          className="rounded-[5px] px-3 py-1.5 text-[15px] leading-none text-muted transition-colors hover:text-text disabled:opacity-40"
+        >
+          +
+        </button>
+      </div>
+      {zoom !== 1 && (
+        <button
+          onClick={resetZoom}
+          className="text-[13px] text-muted underline underline-offset-2 hover:text-text"
+        >
+          {t("Reset")}
+        </button>
+      )}
     </div>
   );
 }

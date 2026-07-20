@@ -1,48 +1,80 @@
-@import "@fontsource/geist-sans/400.css";
-@import "@fontsource/geist-sans/500.css";
-@import "@fontsource/geist-sans/600.css";
-@import "@fontsource/newsreader/400.css";
-@import "@fontsource/newsreader/600.css";
+@import "@fontsource/hanken-grotesk/400.css";
+@import "@fontsource/hanken-grotesk/500.css";
+@import "@fontsource/hanken-grotesk/600.css";
+@import "@fontsource/hanken-grotesk/700.css";
 @import "@fontsource/ibm-plex-mono/400.css";
 @import "@fontsource/ibm-plex-mono/500.css";
+/* Proprietary Anthropic faces (local-only, git-ignored) so Fishes reads
+   pixel-identical to Claude Science. They are loaded tolerantly from main.tsx
+   (import.meta.glob) — NOT hard-@import'd here — so a published clone that lacks
+   the file still builds and simply falls back to Hanken Grotesk / IBM Plex Mono. */
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+
 :root,
 [data-theme="light"] {
-  /* Paper base, neutralised off the AI-default "warm cream" (old #f7f5ef): a
-     cooler, quieter off-white so the app stops reading as the templated
-     beige-and-burnt-orange pairing. Surfaces stay near-white. */
-  --bg: #f3f4f2;
-  --surface: #ffffff;
-  --surface-2: #ebece8;
-  --border: #e3e4df;
-  --border-faint: #eceeea;
-  --text: #23261f;
-  /* Neutral secondary grey (was warm #7a756a), still clearing WCAG AA
-     (~4.6:1 on the paper base). */
-  --muted: #6e716a;
-  /* Accent = the brand terracotta from the Fishes logo (#c06a3e), so the mark
-     and the UI accent read as one color. Distinct from ok-green / link-blue /
-     error-red. Where it carries small text (a chip), it is paired with medium
-     weight to hold contrast. */
-  --accent: #c06a3e;
+  /* Token layer aligned to the Anthropic "Agent Workbench" design handoff:
+     warm-gray neutral ramp (bg-100 page / white panels) + clay accent. The
+     handoff's exact hexes drive both the raw ramp tokens (--bg-000..400,
+     --text-000..400, --rail-card-bg, --border-300, --clay*, --mineral,
+     --danger, --code) used by the workbench surfaces AND the pre-existing
+     semantic tokens (--bg/--surface/--muted/--accent…) re-pointed onto that
+     ramp so every existing utility class shifts to the new palette at once. */
+
+  /* --- raw ramp: EXACT resolved values read from live Claude Science (cds) ---
+     Harvested via CDP getComputedStyle of the running app, so every neutral is
+     a real cds gray, not an eyeballed approximation. */
+  --bg-000: #ffffff;        /* gray-0  — card / input surface (surface-2/panel) */
+  --bg-100: #f9f9f7;        /* gray-20 — app page background (cds --page-bg) */
+  --bg-200: #f3f3f0;        /* gray-40 — dock / banner base */
+  --bg-300: #edece8;        /* gray-60 — hover / user bubble / active tab */
+  --bg-400: #e7e6e1;        /* gray-80 */
+  --rail-card-bg: #fcfcfb;  /* gray-10 — floating sidebar card (surface-1) */
+  --text-000: #0b0b0b;      /* cds --text-primary (near-black) */
+  --text-100: #2c2c2a;      /* gray-750 */
+  --text-200: #52514e;      /* cds --text-secondary (gray-600) */
+  --text-300: #898781;      /* cds --text-muted (gray-400) */
+  --text-400: #a5a49a;      /* gray-300 — placeholder / faintest */
+  --border-300: #e1e0d9;    /* gray-100 — solid hairline (inputs) */
+  --clay: #d97757;          /* cds --clay — brand / send button */
+  --clay-emph: #c6613f;     /* cds --clay-emphasized — pressed */
+  --mineral: #629987;       /* cds --mineral */
+  --code: #006300;          /* cds --text-success — plain output green */
+  --tool-card-bg: rgba(11, 11, 11, 0.03);  /* tool card shell (cds neutral fill) */
+  --tool-out-bg: rgba(11, 11, 11, 0.05);   /* tool output block (cds --bg-neutral) */
+  --code-bg: #f3f6ea;       /* command code block (green tint) */
+
+  /* --- semantic tokens, re-pointed onto the cds ramp --- */
+  --bg: var(--bg-100);
+  --surface: var(--bg-000);
+  --surface-2: var(--bg-300);
+  --border: rgba(11, 11, 11, 0.10);   /* cds --border (black 10%) */
+  --border-faint: rgba(11, 11, 11, 0.05);
+  --text: var(--text-000);
+  --muted: #898781;         /* cds --text-muted */
+  --accent: #184f95;        /* cds --text-accent (inline code / links — BLUE) */
   --accent-fg: #ffffff;
-  /* Brand ink (the logo's dark node / app-icon ground) — a second brand color
-     for deliberate brand moments, not a general-purpose token. */
   --ink: #1e2a3a;
-  --link: #2a6fdb;
-  --warn: #c98a2b;
-  --ok: #4b8b5b;
-  --error: #c0564b;
-  /* Code syntax highlighting — dedicated hues (not reused from the state
-     colors above) so keywords/strings never look like a warning or error. */
+  --link: #184f95;          /* cds --text-accent */
+  --warn: #734500;          /* cds --text-warning */
+  --ok: #006300;            /* cds --text-success */
+  --error: #8e2626;         /* cds --text-danger */
   --syn-keyword: #7a5ea8;
   --syn-string: #8a6d3a;
+  /* Shell command syntax highlight (handoff README §codeTint, hues matched to
+     the live Claude Science command block): command names rust, strings /
+     $()-expansion green, operators gray, plain args near-black, on --code-bg. */
+  --syn-cmd: #b0562a;
+  --syn-str: #5f8a3a;
+  --syn-var: #5f8a3a;
+  --syn-op: #94918a;
+  --syn-flag: #8a6d3a;
+  --syn-arg: #2f2e2a;
   /* Chart design system (P1-5) — validated categorical hues + chart chrome,
-     the single source of truth shared with @ai4s/shared and the matplotlib
+     the single source of truth shared with @fishes/shared and the matplotlib
      style. Light surface = --surface (#ffffff). */
   --series-1: #2a78d6;
   --series-2: #1baf7a;
@@ -52,53 +84,93 @@
   --series-6: #e34948;
   --series-7: #e87ba4;
   --series-8: #eb6834;
-  --chart-grid: #e7e3da;
-  --chart-axis: #cbc6bb;
+  --chart-grid: #e1e0d9;    /* cds gray-100 */
+  --chart-axis: #c3c2b7;    /* cds gray-200 */
 }
 
 [data-theme="dark"] {
-  --bg: #16151a;
-  --surface: #1e1d24;
-  --surface-2: #26252d;
-  --border: #33313c;
-  --border-faint: #25242b;
-  --text: #e8eae3;
-  --muted: #969a92;
-  /* Lifted terracotta for dark surfaces, echoing the logo's reversed node
-     (#e0a06a) so the brand color stays recognisable in dark mode. */
-  --accent: #d98f63;
-  --accent-fg: #16151a;
+  /* Dark mode: EXACT resolved cds dark values (harvested via CDP with
+     data-mode=dark on the live app). Neutral near-black, not warm. */
+  --bg-000: #2c2c2a;        /* cds --surface-2/panel — card / input surface */
+  --bg-100: #0d0d0d;        /* cds --page-bg / surface-0 — app background */
+  --bg-200: #1a1a19;        /* cds --surface-1 — dock / banner base */
+  --bg-300: #383835;        /* gray-700 — hover / user bubble / active tab */
+  --bg-400: #454442;        /* gray-650 */
+  --rail-card-bg: #1a1a19;  /* cds --surface-1 — floating sidebar card */
+  --text-000: #ffffff;      /* cds --text-primary */
+  --text-100: #e1e0d9;      /* gray-100 */
+  --text-200: #c3c2b7;      /* cds --text-secondary (gray-200) */
+  --text-300: #898781;      /* cds --text-muted (gray-400) */
+  --text-400: #6d6b67;      /* gray-500 — placeholder / faintest */
+  --border-300: #383835;
+  --clay: #d97757;
+  --clay-emph: #c6613f;
+  --mineral: #629987;
+  --code: #0ca30c;          /* cds dark --text-success */
+  --tool-card-bg: rgba(255, 255, 255, 0.03);
+  --tool-out-bg: rgba(255, 255, 255, 0.05);
+  --code-bg: #11260f;       /* cds dark --bg-success */
+
+  --bg: var(--bg-100);
+  --surface: var(--bg-000);
+  --surface-2: var(--bg-300);
+  --border: rgba(255, 255, 255, 0.10);
+  --border-faint: rgba(255, 255, 255, 0.05);
+  --text: var(--text-000);
+  --muted: var(--text-300);
+  --accent: #6da7ec;        /* cds dark --text-accent (blue) */
+  --accent-fg: #0d0d0d;
   --ink: #d7dee8;
-  --link: #7aa5f0;
-  --warn: #d7a24a;
-  --ok: #6bb07d;
-  --error: #d47a70;
+  --link: #6da7ec;
+  --warn: #db9300;          /* cds dark --text-warning */
+  --ok: #0ca30c;            /* cds dark --text-success */
+  --error: #ec7e7e;         /* cds dark --text-danger */
   --syn-keyword: #b096d9;
   --syn-string: #d1af74;
-  /* Same hues stepped for the dark chart surface (--surface #1e1d24). */
+  /* Shell syntax highlight — lifted for the dark code block (--code-bg #11260f). */
+  --syn-cmd: #e0a075;
+  --syn-str: #9dc26a;
+  --syn-var: #9dc26a;
+  --syn-op: #8a877f;
+  --syn-flag: #cdae7a;
+  --syn-arg: #d8d5cc;
+  /* Same hues stepped for the dark chart surface (--surface #20201f). */
   --series-1: #3987e5;
   --series-2: #199e70;
-  --series-3: #c98500;
-  --series-4: #008300;
-  --series-5: #9085e9;
-  --series-6: #e66767;
-  --series-7: #d55181;
-  --series-8: #d95926;
-  --chart-grid: #33313c;
-  --chart-axis: #4a4753;
+  --series-3: #db9300;
+  --series-4: #0ca30c;
+  --series-5: #6f5fd0;
+  --series-6: #ec7e7e;
+  --series-7: #ef9ebc;
+  --series-8: #f08a5e;
+  --chart-grid: #383835;    /* cds gray-700 */
+  --chart-axis: #52514e;    /* cds gray-600 */
 }
 
 html,
 body,
 #root {
   height: 100%;
+  /* Fixed desktop shell: the document itself never scrolls (every pane owns its
+     own scroll area), so lock it. `overscroll-behavior: none` kills the macOS/
+     WebView rubber-band bounce — dragging past a pane's end no longer rocks the
+     whole window. */
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: "Geist Sans", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+  /* UI face: Anthropic Sans (the real Claude Science face, local-only) →
+     Hanken Grotesk fallback when the proprietary font is absent → then
+     `system-ui`, EXACTLY like Claude Science's stack. Neither Anthropic Sans
+     nor Hanken has CJK glyphs, so CJK falls through to system-ui and the OS
+     picks the right face PER LANGUAGE (Chinese→PingFang SC, Japanese→Hiragino)
+     — identical to the live app. Do NOT hard-code PingFang before system-ui:
+     that would render Japanese in Chinese glyph shapes. */
+  font-family: "Anthropic Sans", "Hanken Grotesk", system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
@@ -119,11 +191,22 @@ svg.lucide {
   width: 10px;
   height: 10px;
 }
+/* Styled (non-overlay) webkit scrollbars would otherwise sit PERMANENTLY on
+   every overflowing pane — including 1px phantom overflows from fractional
+   zoom rounding, which painted stray full-height bars mid-screen. Keep the
+   thumb invisible until the pointer is over the scrolling pane, approximating
+   the system's overlay behavior. */
 *::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 999px;
-  border: 3px solid transparent;
-  background-clip: content-box;
+  background: transparent;
+  border-radius: 6px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*:hover::-webkit-scrollbar-thumb {
+  background: rgba(11, 11, 11, 0.18); /* cds neutral thumb */
+  border-radius: 6px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
 /* Streamed cards (live coding feed) rise in as they arrive — motion signals
@@ -199,4 +282,38 @@ svg.lucide {
 }
 .fade-in {
   animation: fade-in 150ms ease-out 150ms backwards;
+}
+
+/* Modal entrance (the project gate): the scrim fades and the card settles up
+   with a soft spring — no abrupt pop. Collapses to nothing under reduced
+   motion. */
+@keyframes scrim-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.scrim-in {
+  animation: scrim-in 160ms ease-out;
+}
+.dialog-in {
+  animation: dialog-in 240ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .scrim-in,
+  .dialog-in {
+    animation: none;
+  }
 }

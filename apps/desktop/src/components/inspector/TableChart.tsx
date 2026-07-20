@@ -95,7 +95,7 @@ export function TableChart({ table }: { table: ParsedTable }) {
                 key={c.index}
                 onClick={() => toggleY(c.index)}
                 className={cn(
-                  "inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] ring-1 transition-colors",
+                  "inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[12px] ring-1 transition-colors",
                   on ? "text-text ring-border" : "text-muted/60 ring-transparent hover:text-muted",
                 )}
                 style={on ? { background: "var(--surface-2)" } : undefined}
@@ -178,7 +178,7 @@ export function TableChart({ table }: { table: ParsedTable }) {
         </svg>
       </div>
 
-      <div className="flex items-center gap-3 border-t border-border px-3 py-2 text-[11px]">
+      <div className="flex items-center gap-3 border-t border-border px-3 py-2 text-[12px]">
         <div className="flex flex-wrap gap-x-3 gap-y-1">
           {ys.map((sIdx, si) => (
             <span key={sIdx} className="inline-flex items-center gap-1 text-muted">
@@ -209,7 +209,7 @@ function Segmented({
           key={o}
           onClick={() => onChange(o)}
           className={cn(
-            "px-2 py-1 text-[11px] font-medium capitalize transition-colors",
+            "px-2 py-1 text-[12px] font-medium capitalize transition-colors",
             value === o ? "bg-surface-2 text-text" : "text-muted hover:text-text",
           )}
         >

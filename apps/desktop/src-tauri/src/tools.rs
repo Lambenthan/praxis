@@ -58,8 +58,42 @@ fn probe_stata() -> ToolStatus {
 const STATA_EDITIONS: [&str; 4] = ["MP", "SE", "BE", "IC"];
 
 #[cfg(target_os = "macos")]
-fn find_stata() -> Option<String> {
-    find_stata_under(std::path::Path::new("/Applications"))
+pub(crate) fn find_stata() -> Option<String> {
+    find_stata_under(std::path::Path::new("/Applications")).or_else(spotlight_stata)
+}
+
+/// Fallback for installs outside /Applications (external drive, custom
+/// folder): ask Spotlight for the app bundle by name instead of walking the
+/// disk. Runs only when the standard location misses.
+#[cfg(target_os = "macos")]
+fn spotlight_stata() -> Option<String> {
+    let out = std::process::Command::new("mdfind")
+        .arg("kMDItemFSName == 'Stata*.app'")
+        .output()
+        .ok()?;
+    parse_stata_app_paths(&String::from_utf8_lossy(&out.stdout))
+}
+
+/// Pick the best "…/Stata<EDITION>.app" line: prefer MP > SE > BE > IC,
+/// newest-looking path last as a tie-break. Pure so it can be unit-tested.
+#[cfg(any(target_os = "macos", test))]
+fn parse_stata_app_paths(text: &str) -> Option<String> {
+    let mut lines: Vec<&str> = text
+        .lines()
+        .map(str::trim)
+        .filter(|l| l.ends_with(".app") && !l.contains("/Backups") && !l.contains("/.Trash"))
+        .collect();
+    lines.sort();
+    for edition in STATA_EDITIONS {
+        for line in lines.iter().rev() {
+            let stem = std::path::Path::new(line).file_stem()?.to_string_lossy().to_string();
+            if stem == format!("Stata{edition}") {
+                let parent = std::path::Path::new(line).parent()?;
+                return Some(format!("Stata{edition} ({})", parent.display()));
+            }
+        }
+    }
+    None
 }
 
 /// macOS layout: /Applications/Stata*/Stata<EDITION>.app (the folder holds the
@@ -87,26 +121,52 @@ fn find_stata_under(base: &std::path::Path) -> Option<String> {
     None
 }
 
+/// Windows installs are NOT always under C:\Program Files — a second drive
+/// (D:\Stata18) is common. Check Program Files on every existing drive, then
+/// each drive's root for a top-level Stata* folder. Shallow scans only.
 #[cfg(windows)]
-fn find_stata() -> Option<String> {
-    for base in [r"C:\Program Files", r"C:\Program Files (x86)"] {
-        let Ok(entries) = std::fs::read_dir(base) else { continue };
+pub(crate) fn find_stata() -> Option<String> {
+    let mut bases: Vec<std::path::PathBuf> = Vec::new();
+    for letter in b'C'..=b'Z' {
+        let root = std::path::PathBuf::from(format!("{}:\\", letter as char));
+        if !root.exists() {
+            continue;
+        }
+        bases.push(root.join("Program Files"));
+        bases.push(root.join("Program Files (x86)"));
+        bases.push(root);
+    }
+    for base in bases {
+        let Ok(entries) = std::fs::read_dir(&base) else { continue };
+        // Folder match is case-INSENSITIVE ("stata17", "STATA18", "StataNow19"
+        // are all real-world layouts) — this is a hint scan, never a verdict.
         let mut dirs: Vec<std::path::PathBuf> = entries
             .filter_map(|e| e.ok())
             .map(|e| e.path())
             .filter(|p| {
                 p.file_name()
-                    .map(|n| n.to_string_lossy().starts_with("Stata"))
+                    .map(|n| n.to_string_lossy().to_lowercase().contains("stata"))
                     .unwrap_or(false)
             })
             .collect();
         dirs.sort();
         for dir in dirs.iter().rev() {
+            // Edition-named executables first, for the pretty label…
             for edition in STATA_EDITIONS {
                 for exe in [format!("Stata{edition}-64.exe"), format!("Stata{edition}.exe")] {
                     if dir.join(&exe).exists() {
                         return Some(format!("Stata{edition} ({})", dir.display()));
                     }
+                }
+            }
+            // …then the same rule the bridge's own finder uses: any .exe whose
+            // name contains "stata" counts. Repacks and renamed binaries are
+            // common; a rigid four-name list was declaring real installs absent.
+            let Ok(files) = std::fs::read_dir(dir) else { continue };
+            for f in files.filter_map(|e| e.ok()) {
+                let name = f.file_name().to_string_lossy().to_lowercase();
+                if name.ends_with(".exe") && name.contains("stata") && f.path().is_file() {
+                    return Some(format!("Stata ({})", dir.display()));
                 }
             }
         }
@@ -115,7 +175,7 @@ fn find_stata() -> Option<String> {
 }
 
 #[cfg(all(unix, not(target_os = "macos")))]
-fn find_stata() -> Option<String> {
+pub(crate) fn find_stata() -> Option<String> {
     let mut dirs: Vec<std::path::PathBuf> = std::fs::read_dir("/usr/local")
         .ok()?
         .filter_map(|e| e.ok())
@@ -140,6 +200,21 @@ fn find_stata() -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // Spotlight fallback: the best edition wins over path order, junk lines
+    // (Trash, backups, non-.app) are ignored, absence returns None.
+    #[test]
+    fn spotlight_parse_prefers_the_best_edition_and_skips_junk() {
+        let text = "/Volumes/Ext/Stata18/StataSE.app\n\
+                    /Users/x/.Trash/StataMP.app\n\
+                    /D/Custom/Stata17/StataMP.app\n\
+                    not-an-app\n";
+        assert_eq!(
+            parse_stata_app_paths(text),
+            Some("StataMP (/D/Custom/Stata17)".to_string())
+        );
+        assert_eq!(parse_stata_app_paths("nothing here\n"), None);
+    }
 
     // A Finder-launched app has a minimal PATH, so probing with the plain
     // environment misreported the user's anaconda/homebrew tools as missing —

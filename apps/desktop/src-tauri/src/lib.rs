@@ -7,13 +7,16 @@ mod hpc;
 mod jupyter;
 mod kernel;
 mod large_file;
+mod library;
 mod modal;
 mod opencode_config;
 mod preview_server;
 mod provenance;
+mod provider_check;
 mod runtime;
 mod science_mcp;
 mod tools;
+mod zotero;
 
 use jupyter::JupyterState;
 use kernel::KernelState;
@@ -40,6 +43,15 @@ pub fn run() {
         // install through this plugin; `process` provides the relaunch after.
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        // One-time rename migration (Praxis → Fishes): move the old bundle-id
+        // data dir and ~/Praxis home root before any command reads them.
+        .setup(|app| {
+            runtime::migrate_from_praxis(app.handle());
+            // Split the pre-project global catalog into per-project libraries
+            // (<project>/literature). Idempotent; retires the catalog when done.
+            library::migrate_catalog_to_projects(app.handle());
+            Ok(())
+        })
         .manage(RuntimeState::default())
         .manage(KernelState::default())
         .manage(JupyterState::default())
@@ -48,6 +60,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             runtime::start_runtime,
             runtime::runtime_password,
+            runtime::setup_completed_on_disk,
+            runtime::system_locale_is_chinese,
             runtime::stop_runtime,
             runtime::workspace_path,
             runtime::workspace_base,
@@ -56,6 +70,8 @@ pub fn run() {
             runtime::set_workspace,
             runtime::new_dated_workspace,
             runtime::pick_folder,
+            runtime::dir_exists,
+            runtime::china_mirrors_active,
             runtime::import_opencode_login,
             runtime::remove_config_entry,
             jupyter::jupyter_status,
@@ -64,6 +80,8 @@ pub fn run() {
             runtime::configure_opencode,
             runtime::get_approval_mode,
             runtime::set_approval_mode,
+            runtime::list_disabled_skills,
+            runtime::set_skill_disabled,
             kernel::kernel_execute,
             kernel::kernel_reset,
             artifact_file::read_artifact,
@@ -81,7 +99,11 @@ pub fn run() {
             provenance::list_provenance,
             provenance::read_env_lockfile,
             science_mcp::science_mcp_python,
+            science_mcp::pin_stata_cli,
             science_mcp::setup_science_mcp,
+            science_mcp::reset_science_mcp_env,
+            science_mcp::test_stata_bridge,
+            provider_check::verify_provider_key,
             examples::install_example,
             hpc::list_ssh_hosts,
             hpc::hpc_config,
@@ -91,6 +113,27 @@ pub fn run() {
             hpc::hpc_cancel,
             modal::modal_status,
             preview_server::preview_url,
+            library::library_list,
+            library::library_pick_pdfs,
+            library::library_add_files,
+            library::library_add_doi,
+            library::library_update_item,
+            library::library_set_tags,
+            library::library_set_trashed,
+            library::library_delete_item,
+            library::library_create_collection,
+            library::library_rename_collection,
+            library::library_delete_collection,
+            library::library_assign_collection,
+            library::library_import_zotero,
+            library::library_stage_for_wiki,
+            library::library_stage_for_wiki_many,
+            library::annotation_list,
+            library::annotation_add,
+            library::annotation_update,
+            library::annotation_delete,
+            zotero::zotero_library,
+            zotero::zotero_select,
             large_file::probe_large_file,
             tools::detect_tools,
             debug_log::log_debug

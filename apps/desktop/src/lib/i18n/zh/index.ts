@@ -4,6 +4,7 @@ import { threadZh } from "./thread";
 import { inspectorZh } from "./inspector";
 import { setupZh } from "./setup";
 import { updateZh } from "./update";
+import { settingsZh } from "./settings";
 
 /** Merged zh dictionary. Keys are the English source strings. */
 export const zh: Record<string, string> = {
@@ -13,4 +14,5 @@ export const zh: Record<string, string> = {
   ...inspectorZh,
   ...setupZh,
   ...updateZh,
+  ...settingsZh,
 };

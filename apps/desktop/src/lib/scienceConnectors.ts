@@ -4,7 +4,7 @@
 // literature/database access ourselves. Keep this list small and vetted:
 // every entry must be a real PyPI package with a working launch entry that
 // installs on the managed Python 3.12 env (see src-tauri/science_mcp.rs).
-import type { McpConfig } from "@ai4s/sdk";
+import type { McpConfig } from "@fishes/sdk";
 
 export interface ScienceConnector {
   /** MCP server name written into OpenCode's config. */
@@ -50,7 +50,11 @@ export const SCIENCE_CONNECTORS: ScienceConnector[] = [
     discipline: "statistics",
     description:
       "Drive a locally installed Stata (MP/SE/BE) — the agent writes do-files, runs them, and reads the logs",
-    pkg: "stata-mcp",
+    // Pinned to 1.20.2 — the last version that runs do-files HEADLESS (batch,
+    // writes .log). 1.21.0 switched to launching the macOS Stata GUI, which
+    // pops a modal "已完成 [OK]" per run and blocks until clicked. Do not
+    // un-pin without re-verifying the runner stays headless.
+    pkg: "stata-mcp==1.20.2",
     bin: "stata-mcp",
     installNote: "requires Stata already installed on this machine",
     source: "github.com/sepinetam/mcp-for-stata",
@@ -81,6 +85,15 @@ export const SCIENCE_CONNECTORS: ScienceConnector[] = [
     source: "github.com/tosin2013/fred-mcp",
   },
 ];
+
+/** The bridge test returns the resolved Stata executable's PATH (e.g.
+ *  "/Applications/Stata/StataMP.app/Contents/MacOS/stata-mp" or
+ *  "C:\Program Files\Stata18\StataMP-64.exe"). The setup card and the ready
+ *  bar name the edition, not a filesystem path. */
+export function stataEditionLabel(cli: string): string {
+  const m = /stata[-_ ]?(mp|se|be)/i.exec(cli);
+  return m ? `Stata${m[1]!.toUpperCase()}` : "Stata";
+}
 
 /** Resolve a console script that sits next to the managed python interpreter
  *  (unix: `<env>/bin/<script>`; Windows: `<env>/Scripts/<script>.exe`). */

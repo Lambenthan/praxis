@@ -1,6 +1,6 @@
 // Bridge to the local Python kernel (desktop only). In a plain browser these are
 // no-ops so the app still runs in `pnpm dev`; the notebook then shows a hint.
-import type { FileRoot } from "@ai4s/shared";
+import type { FileRoot } from "@fishes/shared";
 import { isTauri } from "./tauri";
 
 export interface ExecResult {
@@ -8,6 +8,9 @@ export interface ExecResult {
   stdout: string;
   result: string | null;
   error: string | null;
+  /** base64 PNGs of any matplotlib figures the cell drew (empty when it plots
+   *  nothing, or for the R kernel). */
+  images?: string[];
 }
 
 /** Languages with a local kernel. A notebook runs one of these. */

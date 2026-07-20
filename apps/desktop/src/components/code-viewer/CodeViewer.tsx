@@ -53,12 +53,12 @@ export function CodeViewer({ code, language, startLine = 1 }: Props) {
   );
 
   return (
-    <div className="overflow-hidden rounded-input border border-border bg-surface font-mono text-[12.5px] leading-[1.55]">
+    <div className="overflow-hidden rounded-input border border-border bg-surface font-mono text-[14px] leading-[1.55]">
       {highlightedLines.map((html, i) => (
         <div key={i} className="flex">
           <span
             aria-hidden
-            className="w-14 shrink-0 select-none border-r border-border bg-surface-2 px-2.5 py-0.5 text-right text-muted"
+            className="w-11 shrink-0 select-none py-0.5 pr-3 text-right text-[13px] tabular-nums text-text-400"
           >
             {startLine + i}
           </span>

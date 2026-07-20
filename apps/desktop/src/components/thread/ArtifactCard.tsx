@@ -8,7 +8,7 @@ import {
   Paperclip,
   SquareArrowOutUpRight,
 } from "lucide-react";
-import type { ArtifactBlock, ArtifactKind } from "@ai4s/shared";
+import type { ArtifactBlock, ArtifactKind } from "@fishes/shared";
 import { cn } from "@/lib/cn";
 import { useT } from "@/lib/i18n";
 
@@ -34,7 +34,7 @@ export function ArtifactCard({
   return (
     <div
       className={cn(
-        "flex items-center gap-2.5 rounded-input border border-border bg-surface px-3 py-2.5 text-sm",
+        "flex items-center gap-2 rounded-input border border-border bg-surface px-3 py-2 text-sm",
         onOpen && "cursor-pointer hover:bg-surface-2",
       )}
       onClick={onOpen ? () => onOpen(block) : undefined}

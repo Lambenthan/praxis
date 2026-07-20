@@ -33,9 +33,9 @@ export function AdjudicationQueue({
           <span className="grid h-9 w-9 place-items-center rounded-full bg-accent/12 text-accent">
             <Check size={18} strokeWidth={2} />
           </span>
-          <div className="text-[12.5px] font-medium text-text">{t("All candidates adjudicated.")}</div>
+          <div className="text-[14px] font-medium text-text">{t("All candidates adjudicated.")}</div>
           {adoptedCount > 0 && (
-            <div className="font-mono text-[10.5px] text-muted">
+            <div className="font-mono text-[11px] text-muted">
               {adoptedCount} {t("adopted")}
             </div>
           )}
@@ -90,7 +90,7 @@ export function AdjudicationQueue({
                 e.stopPropagation();
                 onAdopt(index);
               }}
-              className="flex items-center gap-1 rounded-input bg-ok/15 px-2.5 py-1 text-[11px] font-medium text-ok transition hover:bg-ok/25 active:scale-[0.97]"
+              className="flex items-center gap-1 rounded-input bg-ok/15 px-2.5 py-1 text-[12px] font-medium text-ok transition hover:bg-ok/25 active:scale-[0.97]"
             >
               <Check size={12} /> {t("Adopt")}
             </button>
@@ -99,7 +99,7 @@ export function AdjudicationQueue({
                 e.stopPropagation();
                 onReject(index);
               }}
-              className="flex items-center gap-1 rounded-input px-2.5 py-1 text-[11px] font-medium text-muted transition hover:bg-error/10 hover:text-error active:scale-[0.97]"
+              className="flex items-center gap-1 rounded-input px-2.5 py-1 text-[12px] font-medium text-muted transition hover:bg-error/10 hover:text-error active:scale-[0.97]"
             >
               <X size={12} /> {t("Reject")}
             </button>

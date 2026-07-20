@@ -13,16 +13,18 @@ import {
   type SessionMeta,
   type SkillInfo,
   type ToolCallStatus,
-} from "@ai4s/sdk";
-import type { ArtifactBlock, RuntimeStatus, ThreadBlock } from "@ai4s/shared";
+} from "@fishes/sdk";
+import type { ArtifactBlock, RuntimeStatus, ThreadBlock } from "@fishes/shared";
 import {
   detectTools as probeTools,
   getApprovalMode,
   isTauri,
+  listDisabledSkills,
   logDebug,
   newDatedWorkspace,
   runtimePassword,
   setApprovalMode as persistApprovalMode,
+  setSkillDisabled as persistSkillDisabled,
   setWorkspace,
   startRuntime,
   workspacePath,
@@ -30,6 +32,7 @@ import {
   type ToolStatus,
 } from "./tauri";
 import { kernelReset } from "./kernel";
+import { pushRecentWorkspace } from "./recentWorkspaces";
 import { moveScrollMemory } from "./scrollMemory";
 import { deriveArtifact } from "./artifacts";
 import { provenanceInputFromEvent, recordProvenance } from "./provenance";
@@ -40,6 +43,18 @@ import { stataInputPreview, stataOutputPreview } from "./toolPreview";
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const URL_KEY = "ai4s.opencodeUrl";
 const HIDDEN_KEY = "ai4s.hiddenExamples";
+/** Set once a model provider is verified — its absence means "fresh install,
+ *  open the setup guide immediately", before the runtime is even up. */
+export const SETUP_DONE_KEY = "ai4s.setupDone";
+
+/** True when this install has never completed first-run setup. */
+export function setupNeverCompleted(): boolean {
+  try {
+    return window.localStorage.getItem(SETUP_DONE_KEY) !== "1";
+  } catch {
+    return false; // storage unavailable — let the live check decide alone
+  }
+}
 
 function initialUrl(): string {
   if (typeof window === "undefined") return DEFAULT_OPENCODE_URL;
@@ -75,6 +90,13 @@ interface RuntimeState {
   threads: Record<string, Thread>;
   skills: SkillInfo[];
   agents: AgentInfo[];
+  /** Bundled-skill directory names the user has disabled (desktop-only). A
+   *  disabled skill is removed from the runtime, so it never appears in
+   *  `skills`; the Skills page uses this to show and re-enable it. */
+  disabledSkills: string[];
+  /** Enable/disable a bundled skill by its profile directory name. Restarts the
+   *  sidecar (like the approval switch) and reconnects so the change is live. */
+  toggleSkill: (dir: string, disabled: boolean) => Promise<void>;
   /** Slash commands the runtime can run ("/" palette): config commands,
    *  skills and MCP prompts, one merged list from GET /command. */
   commands: CommandInfo[];
@@ -98,6 +120,9 @@ interface RuntimeState {
    *  research-project starter); consumed when the session is created. */
   draftAgent: string | null;
   setDraftAgent: (agent: string | null) => void;
+  /** Turn the resident agent on/off for an EXISTING session — takes effect on
+   *  the next message (the agent is sent per turn). Null = default agent. */
+  setSessionAgent: (sessionId: string, agent: string | null) => void;
   /** Session → resident agent. Every prompt in a mapped session is routed to
    *  that agent, so a navigator project stays with the navigator across turns
    *  and app restarts (recovered from the session list). */
@@ -113,6 +138,12 @@ interface RuntimeState {
   rejectQuestion: (requestId: string) => Promise<void>;
   replyPermission: (requestId: string, reply: PermissionReply) => Promise<void>;
   setServerUrl: (url: string) => void;
+  /** Fresh-install signal: true = no provider of the user's own exists yet, so
+   *  the app lives on the setup guide (SetupGate redirects everything there);
+   *  null = not checked yet; false = configured. SetupPage flips it to false
+   *  the moment a verified key is saved (or an existing provider is seen). */
+  setupNeeded: boolean | null;
+  setSetupNeeded: (v: boolean | null) => void;
   loadCatalog: () => Promise<void>;
   detectTools: () => Promise<void>;
   connect: () => Promise<void>;
@@ -121,6 +152,8 @@ interface RuntimeState {
   disconnect: () => void;
   refreshSessions: () => Promise<void>;
   startDraft: () => void;
+  /** Leave the current project → the entry gate (unpins the folder). */
+  closeProject: () => void;
   /** Active workspace folder (absolute path); null in the browser. */
   workspace: string | null;
   /** True when the user explicitly picked the active folder for the next new
@@ -143,7 +176,18 @@ interface RuntimeState {
   /** Switch to an existing folder, or (with `dated`) create a new dated one. */
   switchWorkspace: (target: { path: string } | { dated: string }) => Promise<void>;
   openSession: (id: string) => Promise<void>;
-  sendPrompt: (text: string) => Promise<string | null>;
+  /** Load a subagent session's history into its own thread (task-row expand).
+   *  Only openSession loads history otherwise, and it never runs for child
+   *  sessions — without this, a finished batch expanded to "No steps
+   *  recorded." even though the child demonstrably did work. */
+  loadChildSession: (id: string) => Promise<void>;
+  /** Send a prompt. `fresh: true` forces a NEW conversation (drops the current
+   *  session id at send time) — for flows like "Generate wiki" that must never
+   *  continue whatever thread happened to be open. */
+  sendPrompt: (text: string, opts?: { fresh?: boolean }) => Promise<string | null>;
+  /** Undo an assistant turn and everything after it (server revert), then
+   *  reload the thread. `messageID` is the assistant message to revert to. */
+  revertTo: (messageID: string) => Promise<void>;
   /** Run a "!" shell command directly in the session's workspace folder —
    *  no model turn; the output folds into the thread as a bash tool row. */
   runShell: (command: string) => Promise<string | null>;
@@ -191,6 +235,13 @@ const recordedProvenance = new Set<string>();
  *  so the abort's own trailing events (an "aborted" error, session.idle) must
  *  not add a second line. Consumed by the idle event; a new turn clears it. */
 const interruptedSessions = new Set<string>();
+/** Sessions whose current turn has produced NO visible output yet (no text,
+ *  no tool call, no error line). If such a turn goes idle, something upstream
+ *  failed without ever telling us — surface a diagnosis instead of ending in
+ *  silence (the "API is down but the app just says nothing" failure mode). */
+const silentTurns = new Set<string>();
+const SILENT_TURN_MSG =
+  "The model returned no response. The provider API may be unreachable or misconfigured — check the model and API key in Settings, and your network or proxy.";
 /** Bumped when the user cancels a send that has no server-side turn yet (Esc
  *  during "Starting the session…"). The in-flight performTurn compares its
  *  captured epoch at each stage boundary and abandons quietly when stale —
@@ -270,26 +321,15 @@ async function performTurn(
   try {
     let id = get().currentId;
     if (!id) {
-      // Lazy-create the session on the first message (#3). Unless the user
-      // pinned a folder via the workspace switcher, a new session gets its
-      // own fresh dated folder (~/Documents/OpenScience/<date-time>) first,
-      // so its files never pile up in the bare base folder.
-      if (isTauri && !get().workspacePinned) {
-        set({ switching: true });
-        try {
-          await newDatedWorkspace(datedWorkspaceName());
-          await kernelReset().catch(() => {});
-          await get().connectRetry();
-        } finally {
-          set({ switching: false });
-        }
-        if (cancelled()) return null; // Esc during the folder/sidecar setup
-        if (get().status !== "ready" || !client) {
-          throw new Error("Runtime did not reconnect after creating the session folder.");
-        }
-      }
+      // Lazy-create the session on the first message (#3). No dated throwaway
+      // folders (project-centric model): a session runs in the pinned PROJECT
+      // when one is open, otherwise in the base "blank" workspace — the state
+      // the researcher lands in only by explicitly skipping the project gate.
       if (cancelled()) return null;
       id = await withRetry(() => client!.createSession());
+      // Esc landed while the session was being created → abandon it, don't
+      // adopt the new id into the UI (the turn is dead).
+      if (cancelled()) return null;
       set((s) => {
         // Graft the draft conversation (and its pane) onto the real session id.
         const threads = { ...s.threads, [id!]: s.threads[DRAFT_KEY] ?? emptyThread() };
@@ -314,6 +354,7 @@ async function performTurn(
     interruptedSessions.delete(sid); // a fresh turn folds its events normally
     void logDebug(`turn → ${sid}`);
     if (syncTurn) {
+      silentTurns.add(sid);
       set((s) => ({
         runningSessions: { ...s.runningSessions, [sid]: true },
         ...(shell ? { shellTurns: { ...s.shellTurns, [sid]: true as const } } : {}),
@@ -352,9 +393,16 @@ async function performTurn(
       });
     } else {
       await post(sid);
-      // A cancel that raced the POST: the turn may start server-side, but the
-      // user asked out — leave the lock off so the composer stays usable.
-      if (cancelled()) return null;
+      // A cancel that raced the POST: the POST landed, so the turn IS starting
+      // server-side — abort it there too, or "Interrupted" would be a lie and
+      // the reply would stream in anyway. Fire-and-forget: the local unlock
+      // must not wait on it.
+      if (cancelled()) {
+        interruptedSessions.add(sid);
+        void client?.abortSession(sid).catch(() => {});
+        return null;
+      }
+      silentTurns.add(sid);
       set((s) => ({ runningSessions: { ...s.runningSessions, [sid]: true } }));
     }
     void logDebug("turn OK");
@@ -399,6 +447,7 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
   threads: {},
   skills: [],
   agents: [],
+  disabledSkills: [],
   commands: [],
   defaultModel: null,
   approvalMode: "approve",
@@ -417,6 +466,20 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
   sending: false,
   runningSessions: {},
   shellTurns: {},
+  setupNeeded: null,
+  setSetupNeeded: (v) => {
+    // Persist the decision: the first launch must land on the setup guide
+    // BEFORE the runtime is even up (no flash of an unusable main page), and
+    // later launches must go straight in — only a local flag can answer that
+    // early. Cleared again if the install ever loses its provider.
+    try {
+      if (v === false) window.localStorage.setItem(SETUP_DONE_KEY, "1");
+      if (v === true) window.localStorage.removeItem(SETUP_DONE_KEY);
+    } catch {
+      /* localStorage unavailable — the live check still decides */
+    }
+    set({ setupNeeded: v });
+  },
 
   // All three write the CURRENT session's pane (DRAFT_KEY on a draft), keeping
   // the artifact inspector and the Files browser mutually exclusive.
@@ -482,13 +545,14 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
   loadCatalog: async () => {
     if (!client) return;
     try {
-      const [firstSkills, agents, defaultModel, commands] = await Promise.all([
+      const [firstSkills, agents, defaultModel, commands, disabledSkills] = await Promise.all([
         client.listSkills(),
         client.listAgents(),
         client.getDefaultModel().catch(() => null),
         client.listCommands().catch(() => []),
+        listDisabledSkills().catch(() => []),
       ]);
-      set({ agents, defaultModel, commands });
+      set({ agents, defaultModel, commands, disabledSkills });
       let skills = firstSkills;
       // The first workspace-scoped /api/skill call triggers OpenCode's lazy
       // instance init and can answer before the scan finishes — poll briefly.
@@ -511,13 +575,51 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
   },
 
   setApprovalMode: async (mode) => {
+    // Reflect the choice immediately so the switch feels responsive.
+    set({ approvalMode: mode });
+    // Applying a mode restarts the sidecar — OpenCode reloads its permission
+    // rules only at boot. A restart MID-TURN kills the running turn and strands
+    // its tool call on an eternal "working…" spinner. This path is reached from
+    // the permission prompt's "switch to full access" (which just approved the
+    // blocked request) and the composer toggle, both of which can fire while a
+    // turn is in flight. So wait for the turn to go idle before restarting: the
+    // approved request lets the turn finish, and the new mode takes effect on
+    // the next one. Capped so an abandoned turn never leaves this pending; on
+    // timeout we skip the disruptive restart rather than kill a live turn.
+    const turnRunning = () =>
+      get().sending || Object.keys(get().runningSessions).length > 0;
+    for (let i = 0; turnRunning() && i < 1200; i++) await sleep(500); // ~10 min cap
+    if (turnRunning()) return; // still busy — don't restart under a live turn
     // A deliberate restart, like switchWorkspace: `switching` keeps the UI
     // rendering as connected — no status flip, no page flash.
     set({ switching: true });
     try {
       await persistApprovalMode(mode); // writes the config; restarts the sidecar
-      set({ approvalMode: mode });
       await get().connectRetry();
+    } finally {
+      set({ switching: false });
+    }
+  },
+
+  toggleSkill: async (dir, disabled) => {
+    // Optimistic: reflect the choice now so the row updates instantly.
+    set((s) => ({
+      disabledSkills: disabled
+        ? [...s.disabledSkills.filter((d) => d !== dir), dir]
+        : s.disabledSkills.filter((d) => d !== dir),
+    }));
+    // Disabling removes the skill from the profile and OpenCode rebuilds its
+    // skill registry only at start, so this restarts the sidecar. Same mid-turn
+    // guard as the approval switch — never kill a live turn under the user.
+    const turnRunning = () =>
+      get().sending || Object.keys(get().runningSessions).length > 0;
+    for (let i = 0; turnRunning() && i < 1200; i++) await sleep(500); // ~10 min cap
+    if (turnRunning()) return; // still busy — apply on the next quiet moment
+    set({ switching: true });
+    try {
+      await persistSkillDisabled(dir, disabled); // writes the set; restarts the sidecar
+      await get().connectRetry();
+      await get().loadCatalog(); // refresh the live skill + disabled lists
     } finally {
       set({ switching: false });
     }
@@ -550,6 +652,15 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
       if (event.type !== "text.updated")
         void logDebug(`event ← ${event.type}${"sessionId" in event ? " " + event.sessionId : ""}`);
       if ("sessionId" in event && event.sessionId) sseLast.set(event.sessionId, ++sseSeq);
+      // Any visible output (streamed text, a tool call, or an error line)
+      // means the turn did not die silently.
+      if (
+        (event.type === "text.updated" || event.type === "tool.updated" || event.type === "error") &&
+        "sessionId" in event &&
+        event.sessionId
+      ) {
+        silentTurns.delete(event.sessionId);
+      }
       if (event.type === "error") {
         // A session-scoped error belongs IN the conversation (a red status
         // line where the user is looking), and it ends that session's turn so
@@ -607,6 +718,7 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
       // The idle after a user interrupt: the thread already ends with
       // "Interrupted" — consume the guard, keep the locks clear, skip the fold.
       if (event.type === "session.idle" && interruptedSessions.delete(sid)) {
+        silentTurns.delete(sid); // interrupted, not silently dead
         set((s) => {
           const runningSessions = { ...s.runningSessions };
           const shellTurns = { ...s.shellTurns };
@@ -629,6 +741,10 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
         set((s) => ({ sessionParents: { ...s.sessionParents, [child]: sid } }));
         void get().refreshSessions();
       }
+      // A turn that goes idle having produced nothing at all: the failure
+      // happened upstream (provider API down, misconfigured model, …) and no
+      // error event ever reached us. Say so — silence is the worst outcome.
+      const diedSilently = event.type === "session.idle" && silentTurns.delete(sid);
       set((s) => {
         const cur = s.threads[sid] ?? emptyThread();
         const folded = foldEvent(
@@ -645,10 +761,17 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
           delete runningSessions[sid];
           delete shellTurns[sid];
         }
+        const blocks =
+          diedSilently && s.runningSessions[sid]
+            ? [
+                ...folded.blocks,
+                { kind: "status-line", text: SILENT_TURN_MSG, tone: "error" } as const,
+              ]
+            : folded.blocks;
         return {
           runningSessions,
           shellTurns,
-          threads: { ...s.threads, [sid]: { ...cur, ...folded, loaded: true } },
+          threads: { ...s.threads, [sid]: { ...cur, ...folded, blocks, loaded: true } },
         };
       });
       // A completed live write becomes a provenance version (once per call).
@@ -659,7 +782,37 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
           void recordProvenance(input, sid, get().defaultModel);
         }
       }
-      if (event.type === "session.idle") void get().refreshSessions();
+      if (event.type === "session.idle") {
+        void get().refreshSessions();
+        // The live event stream carries no token usage, so a turn completed in
+        // this app run would have no per-turn cost footer and no Undo button
+        // (both are produced only by historyToThread) until the app restarts.
+        // Rebuild the thread from history now that the turn is idle — the same
+        // source of truth reconcileRunning uses — so the footer + Undo appear
+        // immediately for live turns, not just reloaded ones.
+        void (async () => {
+          if (!client) return;
+          try {
+            const messages = await client.getMessages(sid);
+            // An empty/failed fetch must never wipe a good live-folded thread.
+            if (messages.length === 0) return;
+            set((s) => {
+              // A new turn may have started while we fetched — don't clobber it.
+              if (s.runningSessions[sid]) return {};
+              const cur = s.threads[sid];
+              if (!cur) return {};
+              return {
+                threads: {
+                  ...s.threads,
+                  [sid]: { ...historyToThread(messages, s.commands), loaded: true },
+                },
+              };
+            });
+          } catch {
+            /* keep the live-folded thread if history can't be fetched */
+          }
+        })();
+      }
     });
     try {
       void logDebug(`connect → ${get().serverUrl}`);
@@ -750,23 +903,49 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
   },
 
   // "New" opens a blank draft — no session is created until the first message (#3).
-  // A fresh draft also drops any pinned folder: back to the dated-folder default.
+  // A new conversation STAYS in the open project (VS Code model): the pinned
+  // folder is preserved, only the draft thread/pane are cleared. Leaving a
+  // project is the explicit `closeProject` action, never a side effect of "new".
   startDraft: () =>
     set((s) => {
       const threads = { ...s.threads };
       delete threads[DRAFT_KEY]; // leftovers from an aborted first message
       const panes = { ...s.panes };
       delete panes[DRAFT_KEY]; // a fresh draft starts with a closed pane
+      return { currentId: null, threads, panes, draftAgent: null };
+    }),
+
+  // Explicitly leave the current project → back to the entry gate (unpin the
+  // folder, clear the draft). The composer stays withheld until the researcher
+  // opens/creates another project.
+  closeProject: () =>
+    set((s) => {
+      const threads = { ...s.threads };
+      delete threads[DRAFT_KEY];
+      const panes = { ...s.panes };
+      delete panes[DRAFT_KEY];
       return { currentId: null, workspacePinned: false, threads, panes, draftAgent: null };
     }),
 
   setDraftAgent: (agent) => set({ draftAgent: agent }),
+  setSessionAgent: (sessionId, agent) =>
+    set((s) => {
+      const sessionAgents = { ...s.sessionAgents };
+      if (agent) sessionAgents[sessionId] = agent;
+      else delete sessionAgents[sessionId];
+      return { sessionAgents };
+    }),
 
   switchWorkspace: async (target) => {
     set({ switching: true });
     try {
       if ("dated" in target) await newDatedWorkspace(target.dated);
-      else await setWorkspace(target.path);
+      else {
+        await setWorkspace(target.path);
+        // Entering a project by folder → remember it for the composer's Recent
+        // list (Claude-Code-style project picker).
+        pushRecentWorkspace(target.path);
+      }
       // Reset the local kernel so it respawns in the new folder, then reconnect
       // the event stream scoped to it (connect() re-reads the active folder —
       // the sidecar itself keeps running). An explicit switch pins the folder,
@@ -844,16 +1023,71 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
     }
   },
 
-  // The send lifecycle (new → input → send → response) is shared by plain
+  loadChildSession: async (id) => {
+    // A live-folded child thread is already marked loaded — keep it (replacing
+    // it mid-stream would reset the fold index and duplicate updating blocks).
+    if (!client || get().threads[id]?.loaded) return;
+    try {
+      const messages = await client.getMessages(id);
+      set((s) => {
+        // Live events may have arrived while we fetched — same guard.
+        if (s.threads[id]?.loaded) return {};
+        return {
+          threads: {
+            ...s.threads,
+            [id]: { ...historyToThread(messages, s.commands), loaded: true },
+          },
+        };
+      });
+    } catch {
+      // The child session is gone (or unreadable) — record an empty loaded
+      // thread so the row settles on "No steps recorded." instead of a
+      // perpetual "Loading…".
+      set((s) =>
+        s.threads[id]
+          ? {}
+          : { threads: { ...s.threads, [id]: { ...emptyThread(), loaded: true } } },
+      );
+    }
+  },
+
+  revertTo: async (messageID) => {
+    const client = getClient();
+    const id = get().currentId;
+    if (!client || !id) return;
+    try {
+      await client.revertTo(id, messageID);
+      const messages = await client.getMessages(id);
+      set((s) => ({
+        threads: {
+          ...s.threads,
+          [id]: { ...historyToThread(messages, s.commands), loaded: true },
+        },
+      }));
+    } catch (err) {
+      set({ error: err instanceof Error ? err.message : String(err) });
+    }
+  },
+
+    // The send lifecycle (new → input → send → response) is shared by plain
   // prompts, "!" shell commands and "/" slash commands — see performTurn.
-  sendPrompt: (text) =>
-    performTurn(
+  sendPrompt: (text, opts) => {
+    // `fresh` resets to a draft AT SEND TIME, inside the same synchronous
+    // block as the echo — so nothing (e.g. the library drawer's follow-project
+    // effect re-opening the latest session) can slip a stale currentId in
+    // between "start a new conversation" and "send the first message".
+    if (opts?.fresh) get().startDraft();
+    return performTurn(
       set,
       get,
       text,
-      (sid) => withRetry(() => client!.sendPrompt(sid, text, get().sessionAgents[sid])),
+      (sid) =>
+        withRetry(() =>
+          client!.sendPrompt(sid, text, get().sessionAgents[sid], get().defaultModel ?? undefined),
+        ),
       false,
-    ),
+    );
+  },
 
   // No retry for shell/command: re-POSTing would run the command twice.
   runShell: (command) => {
@@ -882,7 +1116,13 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
     // A send still in setup (dated folder, sidecar restart, session create,
     // or the POST itself) has no server-side turn to abort — cancel locally:
     // stale-mark the in-flight performTurn and unstick the composer now.
+    // If a session DOES exist, the POST may already have landed, so also tell
+    // the server (fire-and-forget) — otherwise the turn streams in anyway.
     if (get().sending && (!sid || !get().runningSessions[sid])) {
+      if (sid && client) {
+        interruptedSessions.add(sid);
+        void client.abortSession(sid).catch(() => {});
+      }
       turnEpoch += 1;
       const key = sid ?? DRAFT_KEY;
       set((s) => {
@@ -910,6 +1150,15 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
     } catch {
       // The abort POST failing usually means the turn is already dead —
       // fall through: unlock locally either way so the user is never stuck.
+    }
+    // Subagents spawned by this conversation run as their own sessions and do
+    // NOT die with the parent — abort every known descendant too, or the task
+    // rows keep streaming after "Interrupted". Harmless on already-idle ones.
+    const parents = get().sessionParents;
+    for (const child of Object.keys(parents)) {
+      if (child !== sid && rootSessionOf(parents, child) === sid) {
+        void client.abortSession(child).catch(() => {});
+      }
     }
     interruptedSessions.add(sid);
     set((s) => {
@@ -1020,7 +1269,7 @@ export const useRuntimeStore = create<RuntimeState>((set, get) => ({
           },
         };
       });
-      await client.sendPrompt(id, prompt);
+      await client.sendPrompt(id, prompt, undefined, get().defaultModel ?? undefined);
       return id;
     } catch (err) {
       set({ error: err instanceof Error ? err.message : String(err) });
@@ -1120,10 +1369,20 @@ export function foldEvent(
       const childSessionId =
         event.childSessionId ??
         (prev?.kind === "tool-call" ? prev.childSessionId : undefined);
+      // Keep the COMPLETE output on the block (tail-capped) — the row expands
+      // to the full record. Later updates without output inherit the previous.
+      const fullOutput =
+        event.output ?? (prev?.kind === "tool-call" ? prev.output : undefined);
+      const prevCommand = prev?.kind === "tool-call" ? prev.command : undefined;
       const block: ThreadBlock = {
         kind: "tool-call",
         title: tidyToolTitle(event.title?.trim() || command || filePath || event.tool || "tool"),
         status: event.status,
+        ...(fullOutput ? { output: fullOutput.slice(-200_000) } : {}),
+        // The raw command (bash line) drives the expanded card's code block —
+        // kept even when a later update omits it (inherit the previous).
+        ...(command || prevCommand ? { command: command || prevCommand } : {}),
+        ...(event.tool ? { tool: event.tool } : {}),
         ...(childSessionId ? { childSessionId } : {}),
         // A user-typed "!" command ran for its output — show it inline.
         // Agent bash steps stay quiet single-line log entries. Stata runs are
@@ -1214,10 +1473,32 @@ export function historyToThread(messages: HistoryMessage[], commands?: CommandIn
   // tool part on the next assistant message. Render it like the live path:
   // the "! cmd" echo and the output inline — never the synthetic marker text.
   let shellTurn = false;
+  // One usage footer per TURN, not per assistant message: a single reply can
+  // span several assistant messages (one per tool cycle), so accumulate their
+  // tokens/cost and emit ONE footer when the turn ends (next user message or
+  // end of thread). messageId is the turn's first assistant message — Undo
+  // reverts the whole turn.
+  let turnTokens = 0;
+  let turnCost = 0;
+  let turnFirstId: string | undefined;
+  const flushUsage = () => {
+    if (turnTokens > 0) {
+      blocks.push({
+        kind: "status-line",
+        text: "",
+        tone: "done",
+        usage: { tokens: turnTokens, cost: turnCost || undefined, messageId: turnFirstId },
+      });
+    }
+    turnTokens = 0;
+    turnCost = 0;
+    turnFirstId = undefined;
+  };
   for (const m of messages) {
     if (m.role === "user") {
       shellTurn = m.parts.some((p) => p.type === "text" && p.synthetic);
       if (shellTurn) continue;
+      flushUsage(); // a new question ends the previous turn's tally
       const text = m.parts
         .filter((p) => p.type === "text")
         .map((p) => p.text ?? "")
@@ -1248,10 +1529,17 @@ export function historyToThread(messages: HistoryMessage[], commands?: CommandIn
             typeof p.state?.input?.filePath === "string" ? p.state.input.filePath : "";
           const userShell = shellTurn && p.tool === "bash";
           if (userShell) blocks.push({ kind: "user", text: `! ${command}` });
+          // A task tool's history part carries its subagent session id in the
+          // state metadata. Without it, the post-idle rebuild (and any reload)
+          // demoted task rows to plain tool rows — the drill-down disappeared.
+          const childMeta = p.state?.metadata?.sessionId ?? p.state?.metadata?.sessionID;
           blocks.push({
             kind: "tool-call",
             title: tidyToolTitle(p.state?.title?.trim() || command || filePath || p.tool || "tool"),
             status: frozen ? "pending" : status,
+            ...(command ? { command } : {}),
+            ...(p.tool ? { tool: p.tool } : {}),
+            ...(typeof childMeta === "string" ? { childSessionId: childMeta } : {}),
             ...(userShell && p.state?.output?.trim()
               ? { inputSummary: command, outputSummary: p.state.output.replace(/\s+$/, "") }
               : (() => {
@@ -1274,8 +1562,27 @@ export function historyToThread(messages: HistoryMessage[], commands?: CommandIn
         }
       }
       shellTurn = false;
+      // The message's own failure record (provider unreachable, bad key,
+      // unknown model…) — without this, the post-idle history rebuild ERASED
+      // the live red line and the turn looked like it silently did nothing.
+      // User aborts also land here (MessageAbortedError); the thread already
+      // says "Interrupted" for those, so skip them.
+      if (m.error && !/abort/i.test(m.error)) {
+        blocks.push({ kind: "status-line", text: m.error, tone: "error" });
+      }
+      if (m.usage) {
+        turnTokens +=
+          (m.usage.input ?? 0) +
+          (m.usage.output ?? 0) +
+          (m.usage.reasoning ?? 0) +
+          (m.usage.cache?.read ?? 0) +
+          (m.usage.cache?.write ?? 0);
+        turnCost += m.usage.cost ?? 0;
+        if (!turnFirstId) turnFirstId = m.id;
+      }
     }
   }
+  flushUsage(); // the last turn's tally closes the record
   if (interrupted) {
     blocks.push({
       kind: "status-line",

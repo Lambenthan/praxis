@@ -1,5 +1,5 @@
 {
-  "name": "@ai4s/sdk",
+  "name": "@fishes/sdk",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -10,6 +10,6 @@
     "./mock-server": "./src/mockServer.ts"
   },
   "dependencies": {
-    "@ai4s/shared": "workspace:*"
+    "@fishes/shared": "workspace:*"
   }
 }

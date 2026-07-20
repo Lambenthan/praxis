@@ -27,6 +27,9 @@ export function useStickToBottom(
   // Null until the first run, so the initial mount is treated as a "switch"
   // too — it yields to scroll memory instead of yanking to the bottom.
   const lastKey = useRef<string | null>(null);
+  // One pending follow write at a time (see below).
+  const pending = useRef(false);
+  const rafId = useRef(0);
 
   useLayoutEffect(() => {
     const el = ref.current;
@@ -38,9 +41,22 @@ export function useStickToBottom(
       stuck.current = el.scrollHeight - el.scrollTop - el.clientHeight < THRESHOLD;
       return;
     }
-    // Same session, content grew: stay at the bottom if we were there.
-    if (stuck.current) el.scrollTop = el.scrollHeight;
+    // Same session, content grew: stay at the bottom if we were there. The
+    // write is coalesced through requestAnimationFrame — SSE streaming commits
+    // once per event (often several per frame), and a synchronous scrollHeight
+    // read after each commit forces a full reflow each time (layout thrash).
+    // One rAF = one layout, right before the frame paints anyway.
+    if (!stuck.current || pending.current) return;
+    pending.current = true;
+    rafId.current = requestAnimationFrame(() => {
+      pending.current = false;
+      const live = ref.current;
+      if (live && stuck.current) live.scrollTop = live.scrollHeight;
+    });
   }, [ref, key, dep, active]);
+
+  // Unmount: drop the scheduled write — the container is gone.
+  useLayoutEffect(() => () => cancelAnimationFrame(rafId.current), []);
 
   return useCallback((e: UIEvent<HTMLElement>) => {
     const el = e.currentTarget;

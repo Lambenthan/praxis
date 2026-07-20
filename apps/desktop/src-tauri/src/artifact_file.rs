@@ -173,11 +173,27 @@ pub fn resolve_artifact(app: AppHandle, path: String) -> Result<Option<String>, 
     Ok(locate_under(&workspace_dir(&app)?, &path))
 }
 
+/// The literal path when it resolves, else the basename search — every reader
+/// entry point gets the same tolerance. Agent prose says "results.qreg is
+/// ready" for a file living at output/results.qreg; a click on that mention
+/// must open the file, not "file not found" (user-reported).
+fn resolve_or_locate(root: &Path, rel: &str) -> Result<PathBuf, String> {
+    match resolve_under(root, rel) {
+        Ok(full) if full.is_file() => Ok(full),
+        first => match locate_under(root, rel) {
+            Some(found) => resolve_under(root, &found),
+            None => first.and_then(|f| {
+                if f.is_file() { Ok(f) } else { Err("file not found".into()) }
+            }),
+        },
+    }
+}
+
 /// Read a workspace file for preview. Text types come back as UTF-8, binary as
 /// base64. `async`: previews read multi-MB files — never on the UI thread.
 #[tauri::command(async)]
 pub fn read_artifact(app: AppHandle, path: String, root: Option<String>) -> Result<ArtifactFile, String> {
-    let full = resolve_under(&scope_root(&app, root.as_deref())?, &path)?;
+    let full = resolve_or_locate(&scope_root(&app, root.as_deref())?, &path)?;
     let ext = full
         .extension()
         .and_then(|s| s.to_str())
@@ -228,10 +244,18 @@ pub fn os_open(full: &Path) -> Result<(), String> {
     opener::open(full).map_err(|e| format!("open failed: {e}"))
 }
 
-/// Open a workspace file in the OS default application.
+/// Open a workspace file in the OS default application. Same mention
+/// tolerance as read_artifact, but a directory stays openable (Finder).
 #[tauri::command]
 pub fn open_path(app: AppHandle, path: String, root: Option<String>) -> Result<(), String> {
-    let full = resolve_under(&scope_root(&app, root.as_deref())?, &path)?;
+    let root = scope_root(&app, root.as_deref())?;
+    let full = match resolve_under(&root, &path) {
+        Ok(f) => f,
+        Err(e) => match locate_under(&root, &path) {
+            Some(found) => resolve_under(&root, &found)?,
+            None => return Err(e),
+        },
+    };
     os_open(&full)
 }
 
@@ -515,8 +539,31 @@ fn base64_encode(input: &[u8]) -> String {
 mod tests {
     use super::{
         base64_encode, dir_entries, encode_for_preview, exceeds_preview_cap, locate_under,
-        mime_for, open_url, unique_name,
+        mime_for, open_url, resolve_or_locate, unique_name,
     };
+
+    #[test]
+    fn resolve_or_locate_falls_back_to_basename_search() {
+        let root = std::env::temp_dir().join(format!("ai4s-rol-test-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join("output")).unwrap();
+        std::fs::write(root.join("output/results.qreg"), b"{}").unwrap();
+
+        // Literal path works; a bare mention ("results.qreg is ready") finds
+        // the real file in output/ instead of erroring "file not found".
+        assert!(resolve_or_locate(&root, "output/results.qreg").is_ok());
+        assert_eq!(
+            resolve_or_locate(&root, "results.qreg").unwrap(),
+            root.canonicalize().unwrap().join("output/results.qreg")
+        );
+        // Genuinely missing files and escapes still fail.
+        assert!(resolve_or_locate(&root, "missing.qreg").is_err());
+        assert!(resolve_or_locate(&root, "../../etc/hosts").is_err());
+        // A directory is not a previewable file.
+        assert!(resolve_or_locate(&root, "output").is_err());
+
+        let _ = std::fs::remove_dir_all(&root);
+    }
 
     #[test]
     fn open_url_rejects_non_http_schemes() {

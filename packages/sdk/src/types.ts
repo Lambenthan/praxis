@@ -1,4 +1,4 @@
-import type { RuntimeStatus, ToolCallStatus } from "@ai4s/shared";
+import type { RuntimeStatus, ToolCallStatus } from "@fishes/shared";
 
 export type { RuntimeStatus, ToolCallStatus };
 
@@ -128,6 +128,19 @@ export interface AgentInfo {
   mode?: string;
 }
 
+/** Reasoning effort levels OpenCode passes through to a reasoning model as the
+ *  provider's `reasoningEffort` option ("none" = reason as little as possible). */
+export type ReasoningEffort = "minimal" | "low" | "medium" | "high";
+
+/** A per-agent override block in OpenCode's config (`agent.<name>`). Only the
+ *  fields Fishes reads/writes are modeled; OpenCode merges these over the
+ *  agent's markdown/built-in definition (config wins). */
+export interface AgentConfigEntry {
+  model?: string;
+  reasoningEffort?: ReasoningEffort;
+  mode?: string;
+}
+
 /** A slash command the runtime can run. GET /command merges every source:
  *  config commands, skills, and MCP prompts — one list for the composer's
  *  "/" palette. */
@@ -151,6 +164,22 @@ export interface HistoryMessage {
    *  On the LAST message this is the server's truth for "is the turn over". */
   completed?: number;
   parts: HistoryPart[];
+  /** Server-provided id (assistant messages) — the revert target. */
+  id?: string;
+  /** One-line failure ("Name: detail") when the model call errored — provider
+   *  failures live on the assistant message, often with no other trace. */
+  error?: string;
+  /** Token usage + USD cost for an assistant turn, when the server reports it. */
+  usage?: MessageUsage;
+}
+
+export interface MessageUsage {
+  input: number;
+  output: number;
+  reasoning?: number;
+  cache?: { read: number; write: number };
+  /** USD cost the provider billed for the turn, when known. */
+  cost?: number;
 }
 export interface HistoryPart {
   type: string;
@@ -164,6 +193,10 @@ export interface HistoryPart {
     title?: string;
     input?: Record<string, unknown>;
     output?: string;
+    /** A task tool's metadata names the subagent session it spawned — the
+     *  history copy of the SSE part's `childSessionId` (key casing varies
+     *  across OpenCode versions, so both spellings are read). */
+    metadata?: { sessionId?: unknown; sessionID?: unknown };
   };
 }
 

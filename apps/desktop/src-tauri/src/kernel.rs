@@ -79,6 +79,10 @@ pub struct ExecResult {
     stdout: String,
     result: Option<String>,
     error: Option<String>,
+    /// base64 PNGs of any matplotlib figures the cell drew (empty for the R
+    /// kernel and for cells that plot nothing).
+    #[serde(default)]
+    images: Vec<String>,
 }
 
 /// Normalize a requested language to a supported kernel id. Empty -> python.
@@ -142,17 +146,30 @@ fn python_candidates() -> Vec<String> {
     c
 }
 
-/// Common Rscript locations (same minimal-PATH problem as Python).
+/// Common Rscript locations (same minimal-PATH problem as Python). The Windows
+/// R installer does NOT add R to PATH by default, and there is no `py`-style
+/// launcher for R, so a GUI-launched app must find the executable itself.
 #[cfg(windows)]
 fn rscript_candidates() -> Vec<String> {
     let mut c = vec!["Rscript".to_string(), "Rscript.exe".to_string()];
-    for base in [
-        "C:\\Program Files\\R",
-        "C:\\Program Files (x86)\\R",
-    ] {
-        // Newest install layout: <base>\R-x.y.z\bin\Rscript.exe — probed via PATH first,
-        // this literal fallback covers the common single-version install.
-        c.push(format!("{base}\\bin\\Rscript.exe"));
+    // The real install layout is <base>\R-x.y.z\bin\Rscript.exe — there is no
+    // bin\ directly under <base> (that folder only holds versioned R-* dirs).
+    // Enumerate the versioned subdirs, newest first, and offer both the plain
+    // and the x64 bin (older R keeps 32/64-bit binaries in separate subdirs).
+    for base in ["C:\\Program Files\\R", "C:\\Program Files (x86)\\R"] {
+        let mut versions: Vec<PathBuf> = std::fs::read_dir(base)
+            .into_iter()
+            .flatten()
+            .flatten()
+            .map(|e| e.path())
+            .filter(|p| p.is_dir())
+            .collect();
+        // Lexicographic sort then reverse ≈ newest R-x.y.z first for our purpose.
+        versions.sort();
+        for dir in versions.into_iter().rev() {
+            c.push(dir.join("bin").join("Rscript.exe").to_string_lossy().to_string());
+            c.push(dir.join("bin").join("x64").join("Rscript.exe").to_string_lossy().to_string());
+        }
     }
     c
 }
@@ -272,6 +289,11 @@ fn exec_on(k: &mut KernelIo, code: &str) -> Result<ExecResult, String> {
         stdout: v.get("stdout").and_then(|x| x.as_str()).unwrap_or("").to_string(),
         result: v.get("result").and_then(|x| x.as_str()).map(str::to_string),
         error: v.get("error").and_then(|x| x.as_str()).map(str::to_string),
+        images: v
+            .get("images")
+            .and_then(|x| x.as_array())
+            .map(|a| a.iter().filter_map(|s| s.as_str().map(str::to_string)).collect())
+            .unwrap_or_default(),
     })
 }
 

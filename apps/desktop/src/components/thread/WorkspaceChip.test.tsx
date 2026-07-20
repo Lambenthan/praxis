@@ -24,7 +24,7 @@ vi.mock("@/lib/tauri", () => ({
 }));
 vi.mock("@/lib/kernel", () => ({ kernelReset: async () => {} }));
 // switchWorkspace reconnects after a pick — give it a client that connects instantly.
-vi.mock("@ai4s/sdk", () => {
+vi.mock("@fishes/sdk", () => {
   class OpenCodeClient {
     private statusCb: (s: string) => void = () => {};
     onStatus(cb: (s: string) => void) {

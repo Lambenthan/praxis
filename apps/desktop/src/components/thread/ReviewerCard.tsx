@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ChevronDown, ShieldCheck, X } from "lucide-react";
-import type { FindingLevel, ReviewCheck, ReviewerBlock } from "@ai4s/shared";
+import type { FindingLevel, ReviewCheck, ReviewerBlock } from "@fishes/shared";
 import { cn } from "@/lib/cn";
 import { useT } from "@/lib/i18n";
 
@@ -77,7 +77,7 @@ export function ReviewerCard({ block }: { block: ReviewerBlock }) {
                   </button>
                 </div>
                 {f.evidence && (
-                  <p className="whitespace-pre-wrap font-mono text-[12.5px] leading-relaxed text-muted">
+                  <p className="whitespace-pre-wrap font-mono text-[14px] leading-relaxed text-muted">
                     {f.evidence}
                   </p>
                 )}

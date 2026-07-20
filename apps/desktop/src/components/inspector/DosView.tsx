@@ -83,13 +83,13 @@ export function DosView({ filename, bytes }: { filename: string; bytes: ArrayBuf
   return (
     <div className="flex h-full flex-col bg-surface">
       <div className="flex items-center gap-2 border-b border-border px-3 py-2">
-        <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-muted">
+        <span className="min-w-0 flex-1 truncate font-mono text-[12px] text-muted">
           {filename} · DOS · {dos.nedos} {t("points")}{dos.spin ? ` · ${t("spin-polarized")}` : ""}
         </span>
         <button
           onClick={() => setAlignFermi((v) => !v)}
           className={cn(
-            "rounded-md px-2 py-1 text-[11px] font-medium ring-1 transition-colors",
+            "rounded-md px-2 py-1 text-[12px] font-medium ring-1 transition-colors",
             alignFermi
               ? "bg-accent/15 text-accent ring-accent/30"
               : "bg-surface-2 text-muted ring-border hover:text-text",
@@ -146,7 +146,7 @@ export function DosView({ filename, bytes }: { filename: string; bytes: ArrayBuf
         </svg>
       </div>
 
-      <div className="border-t border-border px-3 py-2 text-right font-mono text-[11px] text-muted">
+      <div className="border-t border-border px-3 py-2 text-right font-mono text-[12px] text-muted">
         {hover ? (
           <>
             E = {xs[hover.i].toFixed(3)}{alignFermi ? " (rel. E_F)" : ""} eV · DOS↑ = {dos.up[hover.i].toPrecision(4)}

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent } from "react";
-import { ArrowUp, Check, ChevronDown, Hand, Paperclip, Square, Terminal, X, Zap } from "lucide-react";
-import { addFilesToWorkspace, addTextToWorkspace, isTauri, type ApprovalMode } from "@/lib/tauri";
-import { WorkspaceChip } from "@/components/thread/WorkspaceChip";
+import { FolderPlus, Hand, Square, Terminal, Zap } from "lucide-react";
+import { AArrowUp, ACheck, AChevronDown, AClose, AList, ANotebook, APaperclip, APlus } from "@/components/icons/anthropic";
+import { addFilesToWorkspace, addTextToWorkspace, isTauri, pickFolder, type ApprovalMode } from "@/lib/tauri";
+import { getClient, useRuntimeStore } from "@/lib/runtime";
 import { useUiStore } from "@/lib/store";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/cn";
@@ -10,8 +11,8 @@ import { useT } from "@/lib/i18n";
 /** A paste longer than this becomes a workspace file chip instead of raw text. */
 const PASTE_AS_FILE_CHARS = 2000;
 const PASTE_AS_FILE_LINES = 25;
-/** Max composer height before it scrolls internally. */
-const MAX_HEIGHT_PX = 160;
+/** Max composer height before it scrolls internally (handoff §2: 180px). */
+const MAX_HEIGHT_PX = 180;
 
 // Terminal-style input history: every sent input (prompt, "!cmd", "/name args")
 // in its typed form, shared across sessions, newest last, ↑/↓ to recall.
@@ -87,6 +88,11 @@ export function Composer({
   placeholder,
   approvalMode,
   onApprovalModeChange,
+  stepCount,
+  dockChips,
+  notebooks,
+  onOpenNotebook,
+  leadingAction,
 }: {
   onSend?: (text: string) => void;
   onRunShell?: (command: string) => void;
@@ -101,6 +107,18 @@ export function Composer({
    *  session does; static mock sessions don't). */
   approvalMode?: ApprovalMode;
   onApprovalModeChange?: (mode: ApprovalMode) => void;
+  /** Handoff §2 dock info bar: the current turn's tool-step count and the
+   *  notebooks this session touched. Rendered only when real (count>0 / a
+   *  notebook exists) — never a fabricated "Step N of N". */
+  stepCount?: number;
+  /** Extra chips for the dock info bar (e.g. the plan's Step N of M) — CS
+   *  puts plan progress HERE, above the field, not in the page header. */
+  dockChips?: React.ReactNode;
+  notebooks?: { path: string }[];
+  onOpenNotebook?: (path: string) => void;
+  /** Extra control rendered immediately LEFT of the "+" button (e.g. the
+   *  library drawer's session-history clock). */
+  leadingAction?: React.ReactNode;
 }) {
   const t = useT();
   const [value, setValue] = useState("");
@@ -117,6 +135,9 @@ export function Composer({
   /** The approval-mode menu is open. */
   const [approvalOpen, setApprovalOpen] = useState(false);
   const approvalRef = useRef<HTMLDivElement>(null);
+  /** The "+" add menu (attach files / choose folder) is open. */
+  const [addOpen, setAddOpen] = useState(false);
+  const addRef = useRef<HTMLDivElement>(null);
 
   // Dismiss the approval menu on any outside press. (Button blur can't do
   // this: WKWebView never focuses a clicked button, so blur never fires.)
@@ -128,11 +149,89 @@ export function Composer({
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
   }, [approvalOpen]);
+  // Same for the "+" add menu.
+  useEffect(() => {
+    if (!addOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (!addRef.current?.contains(e.target as Node)) setAddOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [addOpen]);
   const taRef = useRef<HTMLTextAreaElement>(null);
   const composerDraft = useUiStore((s) => s.composerDraft);
   const setComposerDraft = useUiStore((s) => s.setComposerDraft);
+  // For the "+" menu's "Choose folder…" — only offered for a fresh draft, since
+  // a live session's folder is fixed (the top WorkspaceBar shows it).
+  const currentId = useRuntimeStore((s) => s.currentId);
+  const switchWorkspace = useRuntimeStore((s) => s.switchWorkspace);
+  const chooseFolder = async () => {
+    const dir = await pickFolder();
+    if (dir) await switchWorkspace({ path: dir });
+  };
 
   const shellMode = !!onRunShell && !command && value.startsWith("!");
+  // @-files / #-sessions summons: typing "@tok" or "#tok" at a word boundary
+  // opens the matching menu; picking replaces the token with the reference.
+  const [mentionFiles, setMentionFiles] = useState<string[] | null>(null);
+  const sessions = useRuntimeStore((s) => s.sessions);
+  const caretToken = (() => {
+    const m = /(^|\s)([@#])([^\s@#]*)$/.exec(value);
+    return m ? { sigil: m[2] as "@" | "#", text: m[3] } : null;
+  })();
+  useEffect(() => {
+    if (caretToken?.sigil !== "@" || mentionFiles !== null) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { listDir } = await import("@/lib/artifactFile");
+        const top = await listDir("", "workspace");
+        const names: string[] = [];
+        for (const e of top) {
+          if (e.isDir) {
+            try {
+              const sub = await listDir(e.path, "workspace");
+              for (const f of sub) if (!f.isDir) names.push(f.path);
+            } catch {
+              /* unreadable subdir — skip */
+            }
+          } else {
+            names.push(e.path);
+          }
+          if (names.length > 200) break;
+        }
+        if (!cancelled) setMentionFiles(names);
+      } catch {
+        if (!cancelled) setMentionFiles([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [caretToken?.sigil]);
+  const mentionMatches = (() => {
+    if (!caretToken || disabled) return [];
+    const q = caretToken.text.toLowerCase();
+    if (caretToken.sigil === "@") {
+      return (mentionFiles ?? [])
+        .filter((f) => f.toLowerCase().includes(q))
+        .slice(0, 8)
+        .map((f) => ({ key: f, label: f, insert: f }));
+    }
+    return sessions
+      .filter((se) => se.title.toLowerCase().includes(q))
+      .slice(0, 8)
+      .map((se) => ({ key: se.id, label: se.title, insert: `"${se.title}"` }));
+  })();
+  const mentionOpen = mentionMatches.length > 0 && !paletteClosed;
+  // Reuse the palette's selection state (`sel`) — only one menu is ever open,
+  // and it already resets to the top on every edit.
+  const mentionSelIndex = Math.min(sel, Math.max(mentionMatches.length - 1, 0));
+  const pickMention = (insert: string) => {
+    setValue((v) => v.replace(/(^|\s)([@#])([^\s@#]*)$/, (_m, pre) => `${pre}${insert} `));
+    taRef.current?.focus();
+  };
   // The palette is open while the command NAME is being typed ("/na…"); the
   // first space ends name-typing (arguments follow) and closes it.
   const slashTyping = !!onRunCommand && !command && /^\/\S*$/.test(value);
@@ -197,12 +296,21 @@ export function Composer({
     taRef.current?.focus();
   }, [composerDraft, setComposerDraft]);
 
-  // Auto-grow with the content, scroll internally beyond the cap.
+  // Auto-grow with the content; show the scrollbar ONLY once the content truly
+  // exceeds the cap. Otherwise an empty/short composer flashes a scrollbar —
+  // especially under browser zoom, where sub-pixel rounding leaves scrollHeight a
+  // hair above the box. (Claude Science's composer has no persistent scrollbar.)
+  // The x axis stays hidden ALWAYS (the textarea soft-wraps, so horizontal
+  // scrolling is meaningless): at fractional zoom (e.g. the 110% default) the
+  // same rounding can leave scrollWidth a hair over clientWidth, and the
+  // phantom horizontal bar then eats ~15px of height and clips the line.
   useEffect(() => {
     const el = taRef.current;
     if (!el) return;
     el.style.height = "auto";
-    el.style.height = `${Math.min(el.scrollHeight, MAX_HEIGHT_PX)}px`;
+    const full = el.scrollHeight;
+    el.style.height = `${Math.min(full, MAX_HEIGHT_PX)}px`;
+    el.style.overflowY = full > MAX_HEIGHT_PX ? "auto" : "hidden";
   }, [value]);
 
   const submit = () => {
@@ -250,6 +358,30 @@ export function Composer({
     // During IME composition (e.g. pinyin), Enter picks a candidate — it must
     // not send. WebKit reports the committing keydown as legacy keyCode 229.
     if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+    // The @/# summon menu is keyboard-driven too: without this, Enter would
+    // fall through and send the raw "@tok" instead of completing the reference.
+    if (mentionOpen) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setSel((i) => Math.min(i + 1, mentionMatches.length - 1));
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setSel((i) => Math.max(i - 1, 0));
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setPaletteClosed(true);
+        return;
+      }
+      if (e.key === "Tab" || e.key === "Enter") {
+        e.preventDefault();
+        pickMention(mentionMatches[mentionSelIndex].insert);
+        return;
+      }
+    }
     // While the palette is open, the keyboard drives it, not the send.
     if (paletteOpen) {
       if (e.key === "ArrowDown") {
@@ -356,12 +488,34 @@ export function Composer({
         : !!value.trim() || files.length > 0);
 
   return (
-    <div
-      className={cn(
-        "relative rounded-card border bg-surface px-2 py-2 shadow-card",
-        shellMode ? "border-warn/60" : command ? "border-accent/50" : "border-border",
+    <div className="relative">
+      {mentionOpen && (
+        <div
+          role="listbox"
+          aria-label={caretToken?.sigil === "@" ? t("Files") : t("Sessions")}
+          className="absolute bottom-full left-0 right-0 z-20 mb-2 max-h-64 overflow-y-auto rounded-card border border-border bg-surface p-1 shadow-card"
+        >
+          {mentionMatches.map((m, i) => (
+            <button
+              key={m.key}
+              role="option"
+              aria-selected={i === mentionSelIndex}
+              className={cn(
+                "flex w-full items-center gap-2 rounded-input px-2 py-1.5 text-left",
+                i === mentionSelIndex ? "bg-surface-2" : "hover:bg-surface-2",
+              )}
+              // mousedown, not click — a click would blur the textarea first.
+              onMouseDown={(e) => {
+                e.preventDefault();
+                pickMention(m.insert);
+              }}
+            >
+              <span className="shrink-0 text-xs text-muted">{caretToken?.sigil}</span>
+              <span className="min-w-0 flex-1 truncate font-mono text-xs text-text">{m.label}</span>
+            </button>
+          ))}
+        </div>
       )}
-    >
       {paletteOpen && (
         <div
           role="listbox"
@@ -396,23 +550,66 @@ export function Composer({
           ))}
         </div>
       )}
-      {files.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 px-1 pb-2">
-          {files.map((name) => (
+      {/* Handoff composer dock: a warm bg-200 tray wraps a white bg-000 card
+          that holds the field, its file chips, AND the action row together. */}
+      <div className="rounded-dock bg-bg-200 p-2">
+      {/* Handoff §2 info bar: a 36px row of chips at the top of the tray — the
+          turn's step count and the session's notebooks. Shown only with real
+          data (never a fabricated "Step N of N"). */}
+      {(dockChips || (stepCount ?? 0) > 0 || (notebooks?.length ?? 0) > 0) && (
+        <div className="flex h-10 items-center gap-2 px-1.5 pb-0.5 text-[12px] text-text-200">
+          {dockChips}
+          {(stepCount ?? 0) > 0 && (
             <span
-              key={name}
-              className="flex items-center gap-1.5 rounded-input bg-surface-2 py-1 pl-2 pr-1 font-mono text-xs text-text ring-1 ring-border"
+              className="flex items-center gap-1.5 rounded-full border border-border bg-bg-000 px-2.5 py-1 tabular-nums text-text-300"
+              title={t("Tool steps in the latest turn")}
             >
-              <Paperclip size={11} className="shrink-0 text-muted" />
-              <span className="max-w-[220px] truncate">{name}</span>
+              <AList size={13} />
+              {stepCount} {t(stepCount === 1 ? "step" : "steps")}
+            </span>
+          )}
+          {(notebooks ?? []).map((nb) => (
+            <button
+              key={nb.path}
+              type="button"
+              className="flex items-center gap-1.5 rounded-full border border-border bg-bg-000 px-2.5 py-1 text-text-200 transition-colors hover:bg-bg-300 hover:text-text-000"
+              title={`${t("Open")} ${nb.path}`}
+              onClick={() => onOpenNotebook?.(nb.path)}
+            >
+              <ANotebook size={13} />
+              {t("Notebook")}
+            </button>
+          ))}
+        </div>
+      )}
+      <div
+        className={cn(
+          "rounded-dock bg-bg-000 px-3 py-2 shadow-dock",
+          shellMode ? "ring-1 ring-warn/50" : command ? "ring-1 ring-accent/40" : "",
+        )}
+      >
+      {files.length > 0 && (
+        <div className="flex flex-wrap gap-2 px-0.5 pb-2 pt-0.5">
+          {files.map((name) => (
+            // Handoff §2: attachments render as 64×64 tiles (radius 10) with a
+            // remove button in the top-right corner.
+            <div
+              key={name}
+              className="group relative flex h-16 w-16 flex-col items-center justify-center gap-1 rounded-[10px] bg-bg-200 p-1.5 ring-1 ring-border-300"
+              title={name}
+            >
+              <APaperclip size={16} className="shrink-0 text-text-400" />
+              <span className="w-full truncate text-center font-mono text-[10px] leading-tight text-text-300">
+                {name.split("/").pop()}
+              </span>
               <button
-                className="rounded p-0.5 text-muted hover:bg-border hover:text-text"
+                className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-bg-400 text-text-200 shadow-sm hover:bg-bg-300 hover:text-text-000"
                 aria-label={`${t("Remove")} ${name}`}
                 onClick={() => setFiles((f) => f.filter((n) => n !== name))}
               >
-                <X size={11} />
+                <AClose size={11} />
               </button>
-            </span>
+            </div>
           ))}
         </div>
       )}
@@ -428,54 +625,17 @@ export function Composer({
             ? t("Arguments (optional) — Enter to run")
             : shellMode
               ? t("Run a shell command in the workspace folder")
-              : (placeholder ?? t("Ask anything"))
+              : (placeholder ?? t("Ask anything — @ for files, # for sessions, / for skills, ⌘K to search"))
         }
         className={cn(
-          "max-h-[160px] w-full resize-none bg-transparent px-1.5 py-0.5 text-sm leading-6 text-text outline-none placeholder:text-muted",
+          "max-h-[180px] min-h-[24px] w-full resize-none overflow-hidden bg-transparent px-0.5 py-1 text-[15px] leading-[1.6] text-text-000 outline-none placeholder:text-text-400",
           (shellMode || command) && "font-mono",
         )}
         aria-label={t("Ask anything")}
       />
-      {/* Codex-style action row: mode controls bottom-left, send bottom-right. */}
-      <div className="flex items-center gap-1.5 pt-1">
-        {command ? (
-          <span
-            className="flex h-7 shrink-0 items-center gap-1 rounded-input bg-accent/15 pl-2 pr-1 font-mono text-xs text-accent"
-            title={t("Runs this command — type arguments, or press Backspace to edit the name")}
-          >
-            /{command}
-            <button
-              className="rounded p-0.5 hover:bg-accent/20"
-              aria-label={t("Remove command")}
-              onClick={unchip}
-            >
-              <X size={11} />
-            </button>
-          </span>
-        ) : shellMode ? (
-          <span
-            className="flex h-7 shrink-0 items-center gap-1 rounded-input bg-warn/15 px-1.5 font-mono text-xs text-warn"
-            title={t("Runs directly in the session's workspace folder")}
-          >
-            <Terminal size={13} />
-            shell
-          </span>
-        ) : (
-          canAttach && (
-            <button
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-input text-muted hover:bg-surface-2 hover:text-text disabled:opacity-40"
-              aria-label={t("Add files")}
-              title={t("Add local files to the workspace")}
-              onClick={() => void addFiles()}
-              disabled={adding}
-            >
-              <Paperclip size={15} />
-            </button>
-          )
-        )}
-        {/* Folder picker for a fresh draft — renders nothing once the session
-            exists (its folder then shows in the header's Files toggle). */}
-        <WorkspaceChip />
+      {/* Action row lives INSIDE the card: approval + add on the left, model +
+          send on the right (handoff layout, no voice). */}
+      <div className="flex items-center gap-1 pt-0.5">
         {approvalMode && onApprovalModeChange && (
           <div className="relative shrink-0" ref={approvalRef}>
             {approvalOpen && (
@@ -506,7 +666,7 @@ export function Composer({
                       <span className="block text-xs text-muted">{t(opt.description)}</span>
                     </span>
                     {opt.mode === approvalMode && (
-                      <Check size={13} className="mt-0.5 shrink-0 text-accent" />
+                      <ACheck size={13} className="mt-0.5 shrink-0 text-accent" />
                     )}
                   </button>
                 ))}
@@ -515,21 +675,95 @@ export function Composer({
             <button
               aria-label={t("Approval mode")}
               title={t("How agent actions get approved")}
-              className="flex h-7 items-center gap-1.5 rounded-full px-2.5 text-xs text-muted hover:bg-surface-2 hover:text-text"
+              className="flex h-8 items-center gap-1.5 rounded-input px-2.5 text-[12.5px] text-text-300 hover:bg-bg-200 hover:text-text-100"
               onClick={() => setApprovalOpen((o) => !o)}
             >
               {approvalMode === "full" ? <Zap size={12} /> : <Hand size={12} />}
               <span>{t(APPROVAL_OPTIONS.find((o) => o.mode === approvalMode)?.label ?? "")}</span>
-              <ChevronDown size={11} />
+              <AChevronDown size={11} />
             </button>
           </div>
         )}
+        {command ? (
+          <span
+            className="flex h-7 shrink-0 items-center gap-1 rounded-input bg-accent/15 pl-2 pr-1 font-mono text-xs text-accent"
+            title={t("Runs this command — type arguments, or press Backspace to edit the name")}
+          >
+            /{command}
+            <button className="rounded p-0.5 hover:bg-accent/20" aria-label={t("Remove command")} onClick={unchip}>
+              <AClose size={12} />
+            </button>
+          </span>
+        ) : shellMode ? (
+          <span
+            className="flex h-7 shrink-0 items-center gap-1 rounded-input bg-warn/15 px-1.5 font-mono text-xs text-warn"
+            title={t("Runs directly in the session's workspace folder")}
+          >
+            <Terminal size={13} />
+            shell
+          </span>
+        ) : (
+          canAttach && (
+            // "+" first, then the leading action (session-history clock) to its
+            // RIGHT — a horizontal control group, not the old vertical stack.
+            <div className="flex items-center gap-1">
+              <div className="relative shrink-0" ref={addRef}>
+                {addOpen && (
+                  <div
+                    role="menu"
+                    aria-label={t("Add to the conversation")}
+                    className="absolute bottom-full left-0 z-20 mb-2 w-56 rounded-card border border-border bg-surface p-1 shadow-card"
+                  >
+                    <button
+                      role="menuitem"
+                      className="flex w-full items-center gap-2 rounded-input px-2 py-1.5 text-left text-xs text-text hover:bg-surface-2"
+                      // mousedown, not click — a click would blur the textarea first.
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        setAddOpen(false);
+                        void addFiles();
+                      }}
+                    >
+                      <APaperclip size={13} className="shrink-0 text-muted" />
+                      {t("Add files")}
+                    </button>
+                    {!currentId && (
+                      <button
+                        role="menuitem"
+                        className="flex w-full items-center gap-2 rounded-input px-2 py-1.5 text-left text-xs text-text hover:bg-surface-2"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          setAddOpen(false);
+                          void chooseFolder();
+                        }}
+                      >
+                        <FolderPlus size={13} className="shrink-0 text-muted" />
+                        {t("Choose folder…")}
+                      </button>
+                    )}
+                  </div>
+                )}
+                <button
+                  aria-label={t("Add")}
+                  title={t("Add files or choose a folder")}
+                  className="flex h-8 w-8 items-center justify-center rounded-input text-text-300 hover:bg-bg-200 hover:text-text-100 disabled:opacity-40"
+                  onClick={() => setAddOpen((o) => !o)}
+                  disabled={adding}
+                >
+                  <APlus size={19} />
+                </button>
+              </div>
+              {leadingAction}
+            </div>
+          )
+        )}
         <span className="flex-1" />
+        <ModelPicker />
         {working && onStop ? (
           // Same spot, same shape, one action: the send button becomes Stop
           // while the agent works — always live, even though the input is not.
           <button
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-input bg-accent text-accent-fg hover:opacity-90"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] bg-clay text-white hover:bg-clay-emph"
             aria-label={t("Stop")}
             title={t("Interrupt this turn (Esc)")}
             onClick={onStop}
@@ -537,16 +771,119 @@ export function Composer({
             <Square size={11} fill="currentColor" />
           </button>
         ) : (
-          <button
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-input bg-accent text-accent-fg hover:opacity-90 disabled:opacity-40"
-            aria-label={t("Send")}
-            onClick={submit}
-            disabled={!canSend}
-          >
-            <ArrowUp size={15} />
-          </button>
+          // Handoff: the clay send button appears only when there is something
+          // to send; otherwise the row ends at the model picker (no voice).
+          canSend && (
+            <button
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] bg-clay text-white hover:bg-clay-emph"
+              aria-label={t("Send")}
+              onClick={submit}
+            >
+              <AArrowUp size={16} />
+            </button>
+          )
         )}
       </div>
+      </div>
+      </div>
+    </div>
+  );
+}
+
+
+/** The current model, changeable where you send — the way Claude Science
+ *  keeps its model picker in the composer's bottom-right. Options load on
+ *  first open from the connected providers; picking writes the default. */
+function ModelPicker() {
+  const t = useT();
+  const defaultModel = useRuntimeStore((s) => s.defaultModel);
+  const loadCatalog = useRuntimeStore((s) => s.loadCatalog);
+  const [open, setOpen] = useState(false);
+  const [options, setOptions] = useState<{ value: string; label: string }[] | null>(null);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const toggle = () => {
+    setOpen((o) => !o);
+    if (options === null) {
+      getClient()
+        ?.listProviders()
+        .then((provs) =>
+          setOptions(
+            provs
+              .filter((p) => p.id !== "opencode")
+              .flatMap((p) => p.models.map((m) => ({ value: `${p.id}/${m.id}`, label: `${p.name} · ${m.id}` }))),
+          ),
+        )
+        .catch(() => setOptions([]));
+    }
+  };
+
+  const pick = async (value: string) => {
+    setOpen(false);
+    try {
+      await getClient()!.setDefaultModel(value);
+      await loadCatalog();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e));
+    }
+  };
+
+  const short = defaultModel ? defaultModel.slice(defaultModel.indexOf("/") + 1) : t("Model");
+  return (
+    <div className="relative shrink-0" ref={ref}>
+      {open && (
+        <div
+          role="menu"
+          aria-label={t("Model")}
+          className="absolute bottom-full right-0 z-20 mb-2 max-h-64 w-72 overflow-y-auto rounded-card border border-border bg-surface p-1 shadow-pop"
+        >
+          {options === null && (
+            <div className="px-2 py-1.5 text-xs text-muted">{t("Loading…")}</div>
+          )}
+          {options?.length === 0 && (
+            <div className="px-2 py-1.5 text-xs text-muted">{t("Connect a model first")}</div>
+          )}
+          {options?.map((o) => (
+            <button
+              key={o.value}
+              role="menuitemradio"
+              aria-checked={o.value === defaultModel}
+              className="flex w-full items-center gap-2 rounded-input px-2 py-1.5 text-left text-[13px] text-text hover:bg-surface-2"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                void pick(o.value);
+              }}
+            >
+              <span className="min-w-0 flex-1 truncate">{o.label}</span>
+              {o.value === defaultModel && <ACheck size={13} className="shrink-0 text-accent" />}
+            </button>
+          ))}
+        </div>
+      )}
+      <button
+        aria-label={t("Model")}
+        className="flex h-8 items-center gap-1 rounded-input px-2.5 text-[14px] font-medium text-text-300 hover:bg-bg-200 hover:text-text-200"
+        onClick={toggle}
+      >
+        <span className="max-w-[140px] truncate">{short}</span>
+        <AChevronDown size={12} />
+      </button>
     </div>
   );
 }

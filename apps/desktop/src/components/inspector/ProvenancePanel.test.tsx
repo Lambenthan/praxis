@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { ProvenanceRecord } from "@ai4s/shared";
+import type { ProvenanceRecord } from "@fishes/shared";
 import { useUiStore } from "@/lib/store";
 import { ProvenancePanel, reproducePrompt } from "./ProvenancePanel";
 

@@ -1,5 +1,12 @@
 /** zh entries for app/routes + app/layout. Key = English source string. */
 export const routesZh: Record<string, string> = {
+  "No model connected yet. Open the setup guide and paste your key there.": "还没连模型。点下面打开安装向导，把 key 粘进去就行。",
+  "Open the setup guide": "打开安装向导",
+  "Workbench": "工作台",
+  "Paste a skill first — the field above is still empty.": "请先粘贴技能内容。",
+  "Go to": "前往",
+  "Up one level": "上一级",
+  "Refresh": "刷新",
   Language: "语言",
   Appearance: "外观",
 
@@ -22,6 +29,7 @@ export const routesZh: Record<string, string> = {
 
   // LiveSessionPage.tsx
   "Browse this session's folder beside the chat": "在对话旁浏览当前会话的文件夹",
+  "Browse the project folder beside the chat": "在对话旁浏览当前项目的文件夹",
   Open: "打开",
   "the agent works on this notebook in this session": "智能体在本次会话中处理此笔记本",
   "OpenCode runtime": "OpenCode 运行时",
@@ -170,4 +178,12 @@ export const routesZh: Record<string, string> = {
   "available in the desktop app": "仅在桌面应用中可用",
   "Change…": "更改…",
   Reveal: "在访达中显示",
+  // Skills page — per-skill enable/disable
+  Disable: "停用",
+  disabled: "已停用",
+  "Remove this skill from the runtime so the agent cannot load it":
+    "从运行时移除该技能，使智能体无法加载它",
+  "Restore this skill so the agent can load it again": "恢复该技能，让智能体可再次加载",
+  "Disabled — removed from the runtime, so the agent cannot load it.":
+    "已停用——已从运行时移除，智能体无法加载它。",
 };

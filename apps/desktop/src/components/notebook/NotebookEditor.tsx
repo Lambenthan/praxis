@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { ArrowLeft, History, Loader2, NotebookPen, Play, Plus, RefreshCw, Square, Trash2, X } from "lucide-react";
-import type { NotebookCell } from "@ai4s/shared";
+import type { NotebookCell } from "@fishes/shared";
 import { readArtifact, writeWorkspaceFile } from "@/lib/artifactFile";
 import { ProvenancePanel } from "@/components/inspector/ProvenancePanel";
 import { PaneTitlebarInset } from "@/components/inspector/RightPane";
@@ -14,6 +14,7 @@ import {
 } from "@/lib/kernel";
 import { toast } from "@/lib/toast";
 import { useScrollMemory } from "@/lib/scrollMemory";
+import { CellOutput } from "@/lib/notebookOutput";
 import { cn } from "@/lib/cn";
 import { useT } from "@/lib/i18n";
 
@@ -125,13 +126,19 @@ export function NotebookEditor({
   const run = async (cell: NotebookCell) => {
     if (running !== null) return;
     setRunning(cell.index);
-    update(cell.index, { output: t("running…") });
+    // Clear stale text/table; the pulsing dot in the meta row signals "running".
+    update(cell.index, { output: undefined, html: undefined });
     try {
       const lang = isCodeLanguage(cell.language) ? cell.language : language;
       const res = await kernelExecute(cell.code, lang, path, root);
-      update(cell.index, {
-        output: res ? formatExecResult(res) : t("(local kernel available only in the desktop app)"),
-      });
+      // Show the figure the cell drew; clear any stale one when a re-run
+      // produces none. (First figure — the cell model holds one image.)
+      const image = res?.images?.[0];
+      let output = res ? formatExecResult(res) : t("(local kernel available only in the desktop app)");
+      // A pure-plot cell has no text — don't print "(no output)" above the figure.
+      if (image && res?.ok && !res.stdout && res.result === null) output = "";
+      // Live kernel results carry no rich HTML; clear any table loaded from disk.
+      update(cell.index, { output: output || undefined, image, html: undefined });
     } catch (e) {
       update(cell.index, {
         output: interruptRef.current
@@ -190,7 +197,7 @@ export function NotebookEditor({
           </button>
         )}
         <NotebookPen size={14} strokeWidth={1.5} className="shrink-0 text-text" />
-        <h1 className="truncate text-[13px] font-medium text-text">{path}</h1>
+        <h1 className="truncate text-[14px] font-medium text-text">{path}</h1>
         <span className="shrink-0 rounded border border-border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted">
           {language === "r" ? "R" : "Python"}
         </span>
@@ -244,8 +251,14 @@ export function NotebookEditor({
                 <span>{cell.language}</span>
                 {isCodeLanguage(cell.language) &&
                   (running === cell.index ? (
-                    // Always visible while running (not hover-gated): a hung
-                    // cell must offer a way out without restarting the app.
+                    <>
+                    {/* Pulsing dot makes run-state legible without the Stop button. */}
+                    <span className="flex items-center gap-1.5 text-ok">
+                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-ok" />
+                      {t("running")}
+                    </span>
+                    {/* Always visible while running (not hover-gated): a hung
+                    // cell must offer a way out without restarting the app. */}
                     <button
                       className="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-error hover:bg-surface-2"
                       aria-label={`${t("Stop cell")} ${cell.index}`}
@@ -255,6 +268,7 @@ export function NotebookEditor({
                       <Square size={10} fill="currentColor" />
                       {t("Stop")}
                     </button>
+                    </>
                   ) : (
                     <button
                       className="hidden items-center gap-1 rounded px-1.5 py-0.5 text-xs hover:bg-surface-2 hover:text-text group-hover:flex"
@@ -281,23 +295,17 @@ export function NotebookEditor({
                 rows={Math.min(Math.max(cell.code.split("\n").length, 1), 14)}
                 spellCheck={false}
                 className={cn(
-                  "w-full resize-none rounded-input border border-border bg-surface p-3 font-mono text-[12.5px] leading-relaxed text-text outline-none focus:border-accent/50",
+                  "w-full resize-none rounded-input border border-border bg-surface p-3 font-mono text-[14px] leading-relaxed text-text outline-none focus:border-accent/50",
                   !isCodeLanguage(cell.language) && "bg-surface-2 text-muted",
                 )}
                 aria-label={`${t("Cell")} ${cell.index}`}
               />
-              {cell.output && (
-                <pre className="mt-1.5 whitespace-pre-wrap rounded-input border border-border bg-surface-2 p-3 font-mono text-[12px] text-text">
-                  {cell.output}
-                </pre>
-              )}
-              {cell.image && (
-                <img
-                  src={`data:image/png;base64,${cell.image}`}
-                  alt={`${t("Cell")} ${cell.index} ${t("figure")}`}
-                  className="mt-1.5 max-w-full rounded-input border border-border bg-white p-2"
-                />
-              )}
+              <CellOutput
+                output={cell.output}
+                image={cell.image}
+                html={cell.html}
+                imageAlt={`${t("Cell")} ${cell.index} ${t("figure")}`}
+              />
             </div>
           ))}
           {cells && (

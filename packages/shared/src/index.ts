@@ -74,6 +74,14 @@ export interface ToolCallBlock {
   meta?: string;
   inputSummary?: string;
   outputSummary?: string;
+  /** The step's complete captured output — every row with one expands to the
+   *  full record, so a long install or analysis is never a black box. */
+  output?: string;
+  /** The raw command/input the step ran (e.g. the bash line), shown verbatim in
+   *  the expanded card's code block — distinct from the tidied `title`. */
+  command?: string;
+  /** The runtime tool name (e.g. "bash"), used to label the card's language. */
+  tool?: string;
   /** Subagent session spawned by this task tool — lets the UI show its live activity. */
   childSessionId?: string;
 }
@@ -172,6 +180,9 @@ export interface ArtifactBlock {
   /** Text content when the producing tool carried it (write/edit); absent for binary. */
   content?: string;
   language?: string;
+  /** Folder tree `path` resolves in (default "workspace"). Example sessions
+   *  point their bundled real files at the base tree. */
+  root?: FileRoot;
 }
 
 export interface RunningJob {
@@ -189,6 +200,9 @@ export interface StatusLineBlock {
   kind: "status-line";
   text: string; // e.g. "8 running · 16m 2s"
   tone?: "running" | "done" | "review" | "error";
+  /** A finished turn's token/cost summary, shown as a faint right-aligned
+   *  footer under the reply. Present only on usage footers. */
+  usage?: { tokens: number; cost?: number; messageId?: string };
 }
 
 // ---- Inspector (right pane) ----
@@ -196,7 +210,6 @@ export interface StatusLineBlock {
 export type Inspector =
   | ArtifactInspector
   | NotebookInspector
-  | PdfInspector
   | FilePreviewInspector
   | NotebookFileInspector;
 
@@ -278,6 +291,8 @@ export interface NotebookCell {
   output?: string;
   /** Base64 PNG from a display_data/execute_result output (e.g. a matplotlib figure). */
   image?: string;
+  /** Raw `text/html` output (e.g. a pandas DataFrame's rich table), sanitized before render. */
+  html?: string;
 }
 
 export interface NotebookInspector {
@@ -287,26 +302,6 @@ export interface NotebookInspector {
   kernelLabel: string;
   kernelNote: string;
   cells: NotebookCell[];
-}
-
-export interface PdfInspector {
-  variant: "pdf";
-  title: string; // "review.pdf"
-  /** HTML facsimile document sections rendered as a paper this slice. */
-  doc: PdfDoc;
-}
-
-export interface PdfDoc {
-  title: string;
-  subtitle?: string;
-  summaryTable?: DataTableBlock;
-  figure?: FigureBlock;
-  sections: PdfSection[];
-}
-
-export interface PdfSection {
-  heading: string;
-  body: string;
 }
 
 // ---- Provenance / citations ----

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Command } from "cmdk";
 import * as Popover from "@radix-ui/react-popover";
 import { Check, ChevronDown, Search } from "lucide-react";
-import type { ProviderInfo } from "@ai4s/sdk";
+import type { ProviderInfo } from "@fishes/sdk";
 import { useT } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
 
@@ -32,7 +32,7 @@ export function ModelPicker({ providers, value, onChange, disabled }: ModelPicke
           disabled={disabled}
           className={cn(
             "flex h-9 w-full items-center gap-2 rounded-input border border-border bg-surface px-3",
-            "text-left text-[13px] text-text outline-none transition-colors hover:bg-surface-2",
+            "text-left text-[14px] text-text outline-none transition-colors hover:bg-surface-2",
             "focus:border-accent/60 disabled:opacity-50",
           )}
         >
@@ -60,11 +60,11 @@ export function ModelPicker({ providers, value, onChange, disabled }: ModelPicke
               <Command.Input
                 autoFocus
                 placeholder={t("Search models…")}
-                className="w-full bg-transparent py-2.5 text-[13px] text-text outline-none placeholder:text-muted"
+                className="w-full bg-transparent py-2.5 text-[14px] text-text outline-none placeholder:text-muted"
               />
             </div>
             <Command.List className="max-h-72 overflow-y-auto p-1.5">
-              <Command.Empty className="px-3 py-6 text-center text-[13px] text-muted">
+              <Command.Empty className="px-3 py-6 text-center text-[14px] text-muted">
                 {t("No matches.")}
               </Command.Empty>
               {providers.map((p) => (
@@ -84,7 +84,7 @@ export function ModelPicker({ providers, value, onChange, disabled }: ModelPicke
                           onChange(itemValue);
                           setOpen(false);
                         }}
-                        className="flex cursor-pointer items-center gap-2 rounded-input px-2 py-1.5 text-[13px] text-text data-[selected=true]:bg-surface-2"
+                        className="flex cursor-pointer items-center gap-2 rounded-input px-2 py-1.5 text-[14px] text-text data-[selected=true]:bg-surface-2"
                       >
                         <Check
                           size={13}

@@ -10,6 +10,12 @@ const mocks = vi.hoisted(() => ({
   failConnects: 0,
   /** Number of createSession() attempts that fail before one succeeds. */
   failCreates: 0,
+  /** Total successful createSession() calls (fresh-send regression). */
+  creates: 0,
+  /** When set, createSession() awaits this before returning — a controllable
+   *  hang for the "Esc during pre-session setup" tests (the setup is now the
+   *  createSession call itself, not a dated-folder step). */
+  createHang: null as Promise<void> | null,
   /** Fire a normalized event into the store, as the SSE stream would. */
   fireEvent: (_e: unknown) => {},
   runShell: vi.fn(),
@@ -49,7 +55,7 @@ vi.mock("./tauri", () => ({
   runtimePassword: async () => "pw-test",
 }));
 vi.mock("./kernel", () => ({ kernelReset: mocks.kernelReset }));
-vi.mock("@ai4s/sdk", () => {
+vi.mock("@fishes/sdk", () => {
   class OpenCodeClient {
     private statusCb: (s: string) => void = () => {};
     constructor(opts: Record<string, unknown>) {
@@ -90,7 +96,9 @@ vi.mock("@ai4s/sdk", () => {
         mocks.failCreates--;
         throw new Error("Load failed");
       }
-      return "ses_new";
+      if (mocks.createHang) await mocks.createHang;
+      mocks.creates++;
+      return `ses_new${mocks.creates > 1 ? `_${mocks.creates}` : ""}`;
     }
     async sendPrompt() {}
     async listCommands() {
@@ -141,13 +149,15 @@ vi.mock("@ai4s/sdk", () => {
   return { OpenCodeClient, DEFAULT_OPENCODE_URL: "http://127.0.0.1:4096" };
 });
 
-import type { ArtifactBlock } from "@ai4s/shared";
+import type { ArtifactBlock } from "@fishes/shared";
 import { DRAFT_KEY, rootSessionOf, useRuntimeStore } from "./runtime";
 
 beforeEach(async () => {
   vi.clearAllMocks();
   mocks.failConnects = 0;
   mocks.failCreates = 0;
+  mocks.creates = 0;
+  mocks.createHang = null;
   mocks.failShell = false;
   mocks.failCommand = false;
   mocks.dropCommandPost = false;
@@ -181,13 +191,12 @@ describe("runtime authentication", () => {
 });
 
 describe("per-session workspace folders", () => {
-  it("creates a fresh dated folder before the first message of an unpinned draft", async () => {
+  it("an unpinned draft runs in the blank base workspace — never a dated folder", async () => {
+    // Project-centric model: no throwaway dated folders. An unpinned draft (the
+    // researcher skipped the gate) just creates the session in the base.
     const id = await useRuntimeStore.getState().sendPrompt("hello");
     expect(id).toBe("ses_new");
-    expect(mocks.newDatedWorkspace).toHaveBeenCalledTimes(1);
-    expect(mocks.newDatedWorkspace.mock.calls[0][0]).toMatch(/^\d{4}-\d{2}-\d{2}-\d{4}$/);
-    // The kernel is reset so it respawns inside the new folder.
-    expect(mocks.kernelReset).toHaveBeenCalled();
+    expect(mocks.newDatedWorkspace).not.toHaveBeenCalled();
   });
 
   it("keeps a pinned folder: no dated folder is created", async () => {
@@ -197,10 +206,20 @@ describe("per-session workspace folders", () => {
     expect(mocks.newDatedWorkspace).not.toHaveBeenCalled();
   });
 
-  it("does not create another folder for later messages in the same session", async () => {
+  it("never creates a dated folder across messages (project-centric)", async () => {
     await useRuntimeStore.getState().sendPrompt("first");
     await useRuntimeStore.getState().sendPrompt("second");
-    expect(mocks.newDatedWorkspace).toHaveBeenCalledTimes(1);
+    expect(mocks.newDatedWorkspace).not.toHaveBeenCalled();
+  });
+
+  it("fresh send abandons the open conversation and starts a new session", async () => {
+    // Generate-wiki regression: with a session already open, {fresh: true}
+    // must NOT continue it — the prompt starts its own conversation.
+    const first = await useRuntimeStore.getState().sendPrompt("hello");
+    expect(useRuntimeStore.getState().currentId).toBe(first);
+    const second = await useRuntimeStore.getState().sendPrompt("generate wiki", { fresh: true });
+    expect(second).not.toBe(first);
+    expect(useRuntimeStore.getState().currentId).toBe(second);
   });
 
   it("masks transient connect errors while deliberately reconnecting", async () => {
@@ -266,10 +285,24 @@ describe("per-session workspace folders", () => {
   it("session.idle ends the turn: running cleared, done line folded in", async () => {
     await useRuntimeStore.getState().sendPrompt("hi");
     expect(useRuntimeStore.getState().runningSessions["ses_new"]).toBe(true);
+    mocks.fireEvent({ type: "text.updated", sessionId: "ses_new", partId: "p1", text: "answer" });
     mocks.fireEvent({ type: "session.idle", sessionId: "ses_new" });
     const s = useRuntimeStore.getState();
     expect(s.runningSessions["ses_new"]).toBeUndefined();
     expect(s.threads["ses_new"].blocks.slice(-1)[0]).toMatchObject({ kind: "status-line", tone: "done" });
+  });
+
+  it("a turn that goes idle with NO output at all diagnoses the API failure", async () => {
+    // The silent-death mode: provider unreachable/misconfigured, OpenCode ends
+    // the turn without ever streaming text, a tool call, or an error event.
+    // The user must NOT be left staring at nothing.
+    await useRuntimeStore.getState().sendPrompt("hi");
+    mocks.fireEvent({ type: "session.idle", sessionId: "ses_new" });
+    const s = useRuntimeStore.getState();
+    expect(s.runningSessions["ses_new"]).toBeUndefined();
+    const last = s.threads["ses_new"].blocks.slice(-1)[0];
+    expect(last).toMatchObject({ kind: "status-line", tone: "error" });
+    expect((last as { text: string }).text).toContain("no response");
   });
 
   it("a session error lands as a red line in the thread and unlocks the turn", async () => {
@@ -377,11 +410,15 @@ describe("per-session workspace folders", () => {
     expect(s.runningSessions["ses_new"]).toBeUndefined();
   });
 
-  it("switchWorkspace pins the chosen folder; startDraft un-pins it", async () => {
+  it("switchWorkspace pins the project; startDraft KEEPS it, closeProject leaves it", async () => {
     await useRuntimeStore.getState().switchWorkspace({ path: "/ws/mine" });
     expect(mocks.setWorkspace).toHaveBeenCalledWith("/ws/mine");
     expect(useRuntimeStore.getState().workspacePinned).toBe(true);
+    // A new conversation stays IN the project (VS Code model).
     useRuntimeStore.getState().startDraft();
+    expect(useRuntimeStore.getState().workspacePinned).toBe(true);
+    // Only an explicit closeProject returns to the entry gate.
+    useRuntimeStore.getState().closeProject();
     expect(useRuntimeStore.getState().workspacePinned).toBe(false);
   });
 });
@@ -526,6 +563,7 @@ describe("stale running locks and interrupt", () => {
     await useRuntimeStore.getState().interrupt();
     mocks.fireEvent({ type: "session.idle", sessionId: "ses_new" }); // consumes the guard
     await useRuntimeStore.getState().sendPrompt("again");
+    mocks.fireEvent({ type: "text.updated", sessionId: "ses_new", partId: "p2", text: "reply" });
     mocks.fireEvent({ type: "session.idle", sessionId: "ses_new" });
     const s = useRuntimeStore.getState();
     expect(s.runningSessions["ses_new"]).toBeUndefined();
@@ -537,13 +575,11 @@ describe("stale running locks and interrupt", () => {
     expect(mocks.abortSession).not.toHaveBeenCalled();
   });
 
-  it("Esc during the pre-session setup cancels locally — no abort, no session", async () => {
-    // First message stuck in the dated-folder/sidecar setup (the exact state
-    // the user reported Esc being dead in): make that step hang controllably.
+  it("Esc during session creation cancels locally — no abort, no session adopted", async () => {
+    // First message stuck creating the session (the pre-session work now that
+    // there are no dated folders): make that step hang controllably.
     let release!: () => void;
-    mocks.newDatedWorkspace.mockImplementationOnce(
-      () => new Promise<string>((r) => (release = () => r("/ws/slow"))),
-    );
+    mocks.createHang = new Promise<void>((r) => (release = r));
     const send = useRuntimeStore.getState().sendPrompt("hi");
     await new Promise((r) => setTimeout(r, 0)); // reach the hanging await
     expect(useRuntimeStore.getState().sending).toBe(true);
@@ -567,9 +603,7 @@ describe("stale running locks and interrupt", () => {
 
   it("a cancelled send does not clobber a NEW send started right after", async () => {
     let release!: () => void;
-    mocks.newDatedWorkspace.mockImplementationOnce(
-      () => new Promise<string>((r) => (release = () => r("/ws/slow"))),
-    );
+    mocks.createHang = new Promise<void>((r) => (release = r));
     const stale = useRuntimeStore.getState().sendPrompt("first");
     await new Promise((r) => setTimeout(r, 0));
     await useRuntimeStore.getState().interrupt(); // cancel it
@@ -581,11 +615,13 @@ describe("stale running locks and interrupt", () => {
     await fresh;
     const s = useRuntimeStore.getState();
     // …and must not have cleared the fresh turn's state or created noise.
-    expect(s.currentId).toBe("ses_new");
+    // (Both sends hit createSession — the stale one's "ses_new" is abandoned;
+    // the fresh turn owns the SECOND created session.)
+    expect(s.currentId).toBe("ses_new_2");
     expect(s.sending).toBe(false);
-    expect(s.threads["ses_new"].blocks.some((b) => b.kind === "user" && b.text === "second")).toBe(
-      true,
-    );
+    expect(
+      s.threads["ses_new_2"].blocks.some((b) => b.kind === "user" && b.text === "second"),
+    ).toBe(true);
   });
 });
 
@@ -696,5 +732,35 @@ describe("approval mode", () => {
     const s = useRuntimeStore.getState();
     expect(s.switching).toBe(false);
     expect(s.status).toBe("ready");
+  });
+
+  // Regression: the permission prompt's "switch to full access" (and the
+  // composer toggle) can fire mid-turn. A sidecar restart mid-turn kills the
+  // running turn and strands its tool call on an eternal "working…" spinner.
+  it("defers the restart while a turn is running, then applies it once idle", async () => {
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    useRuntimeStore.setState({ runningSessions: { ses_1: true } }); // a turn is in flight
+    const p = useRuntimeStore.getState().setApprovalMode("full");
+    // The choice shows immediately, but nothing restarts and the UI is not torn
+    // down while the turn runs.
+    expect(useRuntimeStore.getState().approvalMode).toBe("full");
+    await sleep(600); // past one poll interval
+    expect(mocks.setApprovalMode).not.toHaveBeenCalled();
+    expect(useRuntimeStore.getState().switching).toBe(false);
+    // Turn finishes → the deferred restart proceeds safely.
+    useRuntimeStore.setState({ runningSessions: {} });
+    await p;
+    expect(mocks.setApprovalMode).toHaveBeenCalledWith("full");
+    expect(useRuntimeStore.getState().status).toBe("ready");
+  });
+});
+
+describe("setSessionAgent", () => {
+  it("binds and unbinds the resident agent for an existing session", () => {
+    const { setSessionAgent } = useRuntimeStore.getState();
+    setSessionAgent("ses_1", "research-navigator");
+    expect(useRuntimeStore.getState().sessionAgents["ses_1"]).toBe("research-navigator");
+    setSessionAgent("ses_1", null); // turn guidance off — next message uses the default agent
+    expect(useRuntimeStore.getState().sessionAgents["ses_1"]).toBeUndefined();
   });
 });

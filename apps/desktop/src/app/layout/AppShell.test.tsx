@@ -21,6 +21,7 @@ const renderApp = () =>
 
 describe("AppShell first-run redirect", () => {
   beforeEach(() => {
+    window.localStorage.clear();
     vi.clearAllMocks();
     // bootstrap() would try to reach a real runtime — stub it to a no-op that
     // flips the store to ready, which is the signal the redirect waits on.
@@ -36,15 +37,16 @@ describe("AppShell first-run redirect", () => {
     getDefaultModel.mockResolvedValue(null);
     renderApp();
     await waitFor(() =>
-      expect(screen.getByText("Three steps and the workbench is ready")).toBeInTheDocument(),
+      expect(screen.getByText("Get started")).toBeInTheDocument(),
     );
   });
 
   it("leaves a configured install on its normal page", async () => {
+    window.localStorage.setItem("ai4s.setupDone", "1"); // completed first-run
     getDefaultModel.mockResolvedValue("deepseek/deepseek-chat");
     renderApp();
     // Give the async model check time to resolve, then confirm no redirect.
     await new Promise((r) => setTimeout(r, 30));
-    expect(screen.queryByText("Three steps and the workbench is ready")).not.toBeInTheDocument();
+    expect(screen.queryByText("Get started")).not.toBeInTheDocument();
   });
 });

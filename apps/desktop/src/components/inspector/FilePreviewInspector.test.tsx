@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import type { FilePreviewInspector as FilePreviewInspectorT } from "@ai4s/shared";
+import type { FilePreviewInspector as FilePreviewInspectorT } from "@fishes/shared";
 import { FilePreviewInspector, PreviewError } from "./FilePreviewInspector";
 
 // The markdown tests below carry inline `content`, so they never hit

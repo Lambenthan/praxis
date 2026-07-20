@@ -1,7 +1,6 @@
-import type { Inspector } from "@ai4s/shared";
+import type { Inspector } from "@fishes/shared";
 import { ArtifactInspector } from "./ArtifactInspector";
 import { NotebookInspector } from "./NotebookInspector";
-import { PdfInspector } from "./PdfInspector";
 import { FilePreviewInspector } from "./FilePreviewInspector";
 import { NotebookEditor } from "@/components/notebook/NotebookEditor";
 
@@ -26,9 +25,6 @@ export function InspectorShell({
       )}
       {inspector.variant === "notebook" && (
         <NotebookInspector data={inspector} onClose={onClose} onEvaluate={onEvaluate} controls={controls} />
-      )}
-      {inspector.variant === "pdf" && (
-        <PdfInspector data={inspector} onClose={onClose} controls={controls} />
       )}
       {inspector.variant === "file" && (
         <FilePreviewInspector data={inspector} onClose={onClose} controls={controls} />

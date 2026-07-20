@@ -1,4 +1,5 @@
 import type {
+  AgentConfigEntry,
   AgentInfo,
   CommandInfo,
   HistoryMessage,
@@ -21,6 +22,11 @@ import type {
   ToolCallStatus,
 } from "./types";
 import { DEFAULT_OPENCODE_URL } from "./types";
+
+/** How long one connect() attempt waits for the SSE stream to open before
+ *  giving up so the caller can retry. Short enough that a busy-initializing
+ *  server is retried promptly; long enough to tolerate a slow first response. */
+const CONNECT_TIMEOUT_MS = 6000;
 
 type EventListener = (event: OpenCodeEvent) => void;
 type StatusListener = (status: RuntimeStatus) => void;
@@ -65,6 +71,9 @@ export class OpenCodeClient {
   private readonly statusListeners = new Set<StatusListener>();
   /** messageID → role, learned from message.updated, to skip echoed user parts. */
   private readonly roles = new Map<string, string>();
+  /** Assistant messages whose `error` was already emitted (message.updated
+   *  repeats per message — the red line must not). */
+  private readonly erroredMessages = new Set<string>();
   /** partID → accumulated text of a streaming text part. OpenCode publishes the
    *  full part only at text-start (empty) and text-end; every token in between
    *  arrives as a message.part.delta that must be summed here — otherwise the
@@ -100,7 +109,15 @@ export class OpenCodeClient {
     return h;
   }
 
-  /** Open the SSE event stream. Resolves once the server acknowledges. */
+  /** Open the SSE event stream. Resolves once the server acknowledges.
+   *  Rejects if the stream doesn't open within CONNECT_TIMEOUT_MS — critical
+   *  for first boot: the bundled server BINDS its port early but stays busy
+   *  initializing (loading config, scanning skills), so a plain EventSource
+   *  accepts the TCP connection yet never sends the SSE response, firing
+   *  neither onopen nor onerror. Without a timeout the caller's connect-retry
+   *  loop blocks on that one dead attempt forever ("应用正在启动" that never
+   *  clears). With it, each attempt gives up and retries until the server is
+   *  actually ready. */
   connect(): Promise<void> {
     this.setStatus("connecting");
 
@@ -110,11 +127,29 @@ export class OpenCodeClient {
     const canUseEventSource = !this.customFetch && typeof EventSource !== "undefined";
     if (canUseEventSource) {
       return new Promise((resolve, reject) => {
-        let opened = false;
+        let settled = false;
         const es = new EventSource(this.eventUrl());
         this.es = es;
+        const timer = setTimeout(() => {
+          if (settled) return;
+          settled = true;
+          this.setStatus("error");
+          es.close();
+          this.es = null;
+          reject(new Error("OpenCode event stream did not open in time"));
+        }, CONNECT_TIMEOUT_MS);
         es.onopen = () => {
-          opened = true;
+          if (settled) {
+            // A native EventSource reconnect after a transient drop (e.g. the
+            // server's one-time boot reload closes and reopens the stream).
+            // onerror already flipped us to "connecting"; the stream is live
+            // again, so flip back to "ready" — otherwise status stays stuck at
+            // "connecting" forever and the "starting up" banner never clears.
+            this.setStatus("ready");
+            return;
+          }
+          settled = true;
+          clearTimeout(timer);
           this.setStatus("ready");
           resolve();
         };
@@ -126,15 +161,17 @@ export class OpenCodeClient {
           }
         };
         es.onerror = () => {
-          if (!opened) {
-            this.setStatus("error");
-            es.close();
-            this.es = null;
-            reject(new Error("Could not open OpenCode event stream"));
-          } else {
-            // EventSource auto-reconnects; reflect the transient state.
+          if (settled) {
+            // Already open: EventSource auto-reconnects; reflect transient state.
             this.setStatus("connecting");
+            return;
           }
+          settled = true;
+          clearTimeout(timer);
+          this.setStatus("error");
+          es.close();
+          this.es = null;
+          reject(new Error("Could not open OpenCode event stream"));
         };
       });
     }
@@ -142,22 +179,31 @@ export class OpenCodeClient {
     this.abort = new AbortController();
     return new Promise((resolve, reject) => {
       let opened = false;
+      const timer = setTimeout(() => {
+        if (opened) return;
+        this.setStatus("error");
+        this.abort?.abort();
+        reject(new Error("OpenCode event stream did not open in time"));
+      }, CONNECT_TIMEOUT_MS);
       this.fetchImpl(this.eventUrl(), {
         headers: { Accept: "text/event-stream", ...this.headers() },
         signal: this.abort!.signal,
       })
         .then(async (res) => {
           if (!res.ok || !res.body) {
+            clearTimeout(timer);
             this.setStatus("error");
             reject(new Error(`OpenCode /event returned ${res.status}`));
             return;
           }
+          clearTimeout(timer);
           this.setStatus("ready");
           opened = true;
           resolve();
           await this.readStream(res.body);
         })
         .catch((err) => {
+          clearTimeout(timer);
           if (!opened) {
             this.setStatus("error");
             reject(err instanceof Error ? err : new Error(String(err)));
@@ -242,14 +288,90 @@ export class OpenCodeClient {
     );
     if (!res.ok) throw await this.apiError(res, "Failed to load messages");
     const arr = (await res.json()) as Array<{
-      info: { role: "user" | "assistant"; time?: { completed?: number } };
+      info: {
+        role: "user" | "assistant";
+        id?: string;
+        time?: { completed?: number };
+        cost?: number;
+        tokens?: {
+          input?: number;
+          output?: number;
+          reasoning?: number;
+          cache?: { read: number; write: number };
+        };
+        error?: { name?: string; message?: string; data?: { message?: string } };
+      };
       parts: HistoryMessage["parts"];
     }>;
     return arr.map((m) => ({
       role: m.info.role,
       completed: m.info.time?.completed,
       parts: m.parts ?? [],
+      id: m.info.id,
+      // A failed model call is stored ON the assistant message; carrying it in
+      // history keeps the red error line visible after any thread rebuild.
+      error: m.info.error
+        ? (() => {
+            const detail = m.info.error.data?.message ?? m.info.error.message ?? "";
+            const name = m.info.error.name ?? "";
+            const full = detail && name ? `${name}: ${detail}` : detail || name;
+            return full ? full.split("\n")[0] : undefined;
+          })()
+        : undefined,
+      usage: m.info.tokens
+        ? {
+            input: m.info.tokens.input ?? 0,
+            output: m.info.tokens.output ?? 0,
+            reasoning: m.info.tokens.reasoning,
+            cache: m.info.tokens.cache,
+            cost: m.info.cost,
+          }
+        : undefined,
     }));
+  }
+
+  /** Revert the session to BEFORE the given message — undo an assistant turn
+   *  and everything after it. Reversible with unrevert. */
+  async revertTo(sessionId: string, messageID: string): Promise<void> {
+    const res = await this.fetchImpl(
+      `${this.baseUrl}/session/${encodeURIComponent(sessionId)}/revert`,
+      { method: "POST", headers: this.headers(true), body: JSON.stringify({ messageID }) },
+    );
+    if (!res.ok) throw await this.apiError(res, "Failed to revert the session");
+  }
+
+  /** Undo the last revert. */
+  async unrevert(sessionId: string): Promise<void> {
+    const res = await this.fetchImpl(
+      `${this.baseUrl}/session/${encodeURIComponent(sessionId)}/unrevert`,
+      { method: "POST", headers: this.headers(true), body: "{}" },
+    );
+    if (!res.ok) throw await this.apiError(res, "Failed to undo the revert");
+  }
+
+  /** Unified diff of everything the agent changed in the workspace this
+   *  session (empty string when nothing changed). */
+  async sessionDiff(sessionId: string): Promise<string> {
+    const res = await this.fetchImpl(
+      `${this.baseUrl}/session/${encodeURIComponent(sessionId)}/diff`,
+      { headers: this.headers() },
+    );
+    if (!res.ok) throw await this.apiError(res, "Failed to load the diff");
+    // The server returns an array of per-file diffs (FileDiff[] = {file, patch,
+    // additions, deletions, status}), each carrying its own unified `patch`.
+    // Older shapes ({patch} or a raw string) are tolerated for forward-compat.
+    const body = (await res.json()) as
+      | string
+      | { patch?: string }
+      | Array<{ patch?: string }>;
+    if (typeof body === "string") return body;
+    if (Array.isArray(body)) {
+      return body
+        .map((d) => d.patch ?? "")
+        .filter(Boolean)
+        .join("\n");
+    }
+    return body.patch ?? "";
   }
 
   /** Interrupt the session's current turn (POST /session/:id/abort). A no-op
@@ -291,6 +413,31 @@ export class OpenCodeClient {
       body: JSON.stringify({ model }),
     });
     if (!res.ok) throw await this.apiError(res, "Failed to set model");
+  }
+
+  /** Per-agent config overrides from the global (app-profile) config — the
+   *  `agent.<name>` blocks Fishes has written (model, reasoningEffort). Agents
+   *  defined only in markdown/built-in are absent here until overridden; their
+   *  live identity/mode comes from `listAgents()`. */
+  async getAgentConfigs(): Promise<Record<string, AgentConfigEntry>> {
+    const res = await this.fetchImpl(`${this.baseUrl}/global/config`, { headers: this.headers() });
+    if (!res.ok) return {};
+    const cfg = (await res.json()) as { agent?: Record<string, AgentConfigEntry> };
+    return cfg.agent ?? {};
+  }
+
+  /** Write per-agent overrides into OpenCode's global config (deep-merged, so
+   *  other agents and each agent's other keys are preserved). Persists to the
+   *  app-profile config; new turns/sessions pick it up. `reasoningEffort` reaches
+   *  the model as its provider reasoning-effort option; `model` pins that agent
+   *  (e.g. a dispatched subagent) to a specific "provider/model". */
+  async setAgentConfigs(patch: Record<string, AgentConfigEntry>): Promise<void> {
+    const res = await this.fetchImpl(`${this.baseUrl}/global/config`, {
+      method: "PATCH",
+      headers: this.headers(true),
+      body: JSON.stringify({ agent: patch }),
+    });
+    if (!res.ok) throw await this.apiError(res, "Failed to update agent settings");
   }
 
   /** Providers OpenCode can use right now, with their models. */
@@ -542,14 +689,24 @@ export class OpenCodeClient {
 
   /** Send a prompt into a session; output streams back via onEvent (SSE).
    *  `agent` routes the turn to a named OpenCode agent (e.g. the resident
-   *  research navigator) instead of the default; omitted = server default. */
-  async sendPrompt(sessionId: string, text: string, agent?: string): Promise<void> {
+   *  research navigator) instead of the default; omitted = server default.
+   *  `model` ("provider/model") pins THIS turn to that model. Without it,
+   *  OpenCode reuses the session's last model — so a mid-conversation switch in
+   *  the composer (which only changes the global default) would never take
+   *  effect on an existing session, and "Resume" would keep using the old,
+   *  possibly slow, model. Passing it per turn makes the switch immediate. */
+  async sendPrompt(sessionId: string, text: string, agent?: string, model?: string): Promise<void> {
+    const slash = model ? model.indexOf("/") : -1;
+    const modelPart =
+      slash > 0
+        ? { model: { providerID: model!.slice(0, slash), modelID: model!.slice(slash + 1) } }
+        : {};
     const res = await this.fetchImpl(
       `${this.baseUrl}/session/${encodeURIComponent(sessionId)}/prompt_async`,
       {
         method: "POST",
         headers: this.headers(true),
-        body: JSON.stringify({ ...(agent ? { agent } : {}), parts: [{ type: "text", text }] }),
+        body: JSON.stringify({ ...(agent ? { agent } : {}), ...modelPart, parts: [{ type: "text", text }] }),
       },
     );
     if (!res.ok) throw await this.apiError(res, "Failed to send prompt");
@@ -692,8 +849,33 @@ export class OpenCodeClient {
     switch (raw.type) {
       case "message.updated": {
         // Learn each message's role so we can skip the echoed user message parts.
-        const info = props.info as { id?: string; role?: string } | undefined;
+        const info = props.info as
+          | {
+              id?: string;
+              role?: string;
+              sessionID?: string;
+              error?: { name?: string; message?: string; data?: { message?: string } };
+            }
+          | undefined;
         if (info?.id && info.role) this.roles.set(info.id, info.role);
+        // Provider failures (unreachable API, bad key, unknown model) often
+        // surface ONLY here, as `error` on the assistant message — with no
+        // session.error event. Swallowing it left the user staring at a turn
+        // that silently never answers; emit it like any other session error.
+        // (User aborts also arrive this way as MessageAbortedError — the store
+        // suppresses those after an interrupt, same as for session.error.)
+        if (info?.error && info.id && !this.erroredMessages.has(info.id)) {
+          this.erroredMessages.add(info.id);
+          const e = info.error;
+          const detail = e.data?.message ?? e.message ?? "";
+          const name = e.name ?? "";
+          const full = detail && name ? `${name}: ${detail}` : detail || name || "model call failed";
+          this.emit({
+            type: "error",
+            sessionId: String(info.sessionID ?? ""),
+            message: full.split("\n")[0],
+          });
+        }
         break;
       }
       case "message.part.updated": {

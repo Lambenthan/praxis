@@ -38,9 +38,10 @@ venv/
 .superpowers/
 
 # Local runtime & secrets (never commit)
-.ai4s-workbench/
+.fishes/
 secrets/
 *.key
+*.pem
 .env
 .env.*
 
@@ -62,3 +63,9 @@ videos/
 # Local video-production tooling (fetched hyperframes skill packs)
 .agents/
 skills-lock.json
+
+# Anthropic proprietary fonts — local-only, never publish (license).
+# Ignore both the woff2 binaries AND the @font-face css that references them,
+# so `git add -A` can never stage them and no published clone carries them.
+apps/desktop/src/fonts/anthropic/
+apps/desktop/src/fonts/anthropic.css

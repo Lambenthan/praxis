@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { OpenCodeEvent, HistoryMessage } from "@ai4s/sdk";
+import type { OpenCodeEvent, HistoryMessage } from "@fishes/sdk";
 import { datedWorkspaceName, foldEvent, historyToThread, subagentActivity, tidyToolTitle, type FoldState } from "./runtime";
 
 const empty: FoldState = { blocks: [], index: {} };
@@ -220,6 +220,10 @@ describe("historyToThread", () => {
         status: "success",
         inputSummary: "pwd",
         outputSummary: "/ws/here",
+        // The verbatim command + runtime tool are carried through so the
+        // expanded card can render the green code block + "BASH · ENV" label.
+        command: "pwd",
+        tool: "bash",
       },
     ]);
   });

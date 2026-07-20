@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import type { ToolCallStatus } from "@ai4s/shared";
+import type { ToolCallStatus } from "@fishes/shared";
 import { ToolCallRow } from "./ToolCallRow";
 
 const STATUSES: [ToolCallStatus, string][] = [
@@ -78,7 +78,7 @@ describe("ToolCallRow", () => {
     expect(screen.getByText("webfetch statalist.org")).toBeInTheDocument();
   });
 
-  it("shows the inline output of a user-run shell command", () => {
+  it("starts collapsed and reveals a command's output only when clicked (no auto-expand)", () => {
     render(
       <ToolCallRow
         block={{
@@ -89,6 +89,10 @@ describe("ToolCallRow", () => {
         }}
       />,
     );
+    // Collapsed by default — the output is not passively shown.
+    expect(screen.queryByText("/ws/2026-07-04-1030")).not.toBeInTheDocument();
+    // Clicking the row header reveals it.
+    fireEvent.click(screen.getByRole("button", { name: /pwd/ }));
     expect(screen.getByText("/ws/2026-07-04-1030")).toBeInTheDocument();
   });
 });

@@ -7,6 +7,7 @@ import {
   doFile,
   docxTable,
   fmtNum,
+  num,
   latexTable,
   modelStatus,
   parseQReg,
@@ -60,6 +61,24 @@ export function QRegWorkbench({
     setDirty(false);
   }, [text]);
 
+  // When more model columns sit off the right edge, fade them and show a "›" so
+  // the reader knows models (5), (6)… exist beyond what fits. These hooks MUST
+  // sit above the early return below: when doc flips to null (switching to an
+  // unreadable .qreg in place, no remount) the hook count must stay stable, or
+  // React throws "rendered fewer hooks than expected".
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [moreRight, setMoreRight] = useState(false);
+  const syncEdge = () => {
+    const el = scrollRef.current;
+    if (el) setMoreRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 2);
+  };
+  useEffect(() => {
+    syncEdge();
+    window.addEventListener("resize", syncEdge);
+    return () => window.removeEventListener("resize", syncEdge);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doc]);
+
   if (!doc) {
     return (
       <div className="p-6 text-sm text-muted">
@@ -81,26 +100,11 @@ export function QRegWorkbench({
   const pending = doc.models.filter((m) => modelStatus(m) === "candidate").length;
   const candidateCol = doc.models.map((m) => modelStatus(m) === "candidate");
 
-  // When more model columns sit off the right edge, fade them and show a "›" so
-  // the reader knows models (5), (6)… exist beyond what fits.
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const [moreRight, setMoreRight] = useState(false);
-  const syncEdge = () => {
-    const el = scrollRef.current;
-    if (el) setMoreRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 2);
-  };
-  useEffect(() => {
-    syncEdge();
-    window.addEventListener("resize", syncEdge);
-    return () => window.removeEventListener("resize", syncEdge);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [doc]);
-
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-2 border-b border-border bg-surface px-3 py-2">
-        <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-muted">{filename}</span>
-        <span className="text-[11px] text-muted">
+        <span className="min-w-0 flex-1 truncate font-mono text-[12px] text-muted">{filename}</span>
+        <span className="text-[12px] text-muted">
           {t("Models:")} {doc.models.length}
           {pending > 0
             ? ` · ${pending} ${t("to adjudicate")}`
@@ -111,7 +115,7 @@ export function QRegWorkbench({
         {(() => {
           const base = filename.replace(/\.qreg$/i, "") || "results";
           const btn =
-            "inline-flex items-center gap-1 rounded-input border border-border px-2 py-1 text-[11px] text-muted transition hover:bg-surface-2 hover:text-text";
+            "inline-flex items-center gap-1 rounded-input border border-border px-2 py-1 text-[12px] text-muted transition hover:bg-surface-2 hover:text-text";
           return (
             <>
               <button
@@ -157,7 +161,7 @@ export function QRegWorkbench({
               onSave(serializeQReg(doc));
               setDirty(false);
             }}
-            className="inline-flex items-center gap-1 rounded-input bg-accent px-2.5 py-1 text-[11px] font-medium text-accent-fg transition enabled:hover:brightness-105 enabled:active:scale-[0.97] disabled:opacity-40"
+            className="inline-flex items-center gap-1 rounded-input bg-accent px-2.5 py-1 text-[12px] font-medium text-accent-fg transition enabled:hover:brightness-105 enabled:active:scale-[0.97] disabled:opacity-40"
           >
             <Save size={12} /> {t("Save")}
           </button>
@@ -188,12 +192,12 @@ export function QRegWorkbench({
         <div className="mx-auto max-w-3xl px-10 py-12">
           <div className="w-full">
             {doc.title && (
-              <div className="text-center font-serif text-[17px] font-medium tracking-[0.01em] text-text [text-wrap:balance]">
+              <div className="text-center font-serif text-[22px] font-semibold tracking-[0.01em] text-text [text-wrap:balance]">
                 {doc.title}
               </div>
             )}
             {doc.depvar && (
-              <div className="mt-2 text-center font-serif text-[13px] italic text-muted">
+              <div className="mt-2 text-center font-serif text-[16px] italic text-muted">
                 {t("Dependent variable:")}{" "}
                 <span className="not-italic text-text">{doc.depvar}</span>
               </div>
@@ -205,7 +209,7 @@ export function QRegWorkbench({
             <div className="relative mt-6">
             <div ref={scrollRef} onScroll={syncEdge} className="overflow-x-auto">
             <table
-              className="mx-auto border-collapse font-serif text-[13px]"
+              className="mx-auto border-collapse font-serif text-[14px]"
               data-testid="qreg-table"
             >
               <thead>
@@ -224,10 +228,10 @@ export function QRegWorkbench({
                         data-status={candidateCol[i] ? "candidate" : "adopted"}
                         className="min-w-[124px] px-6 pb-1.5 pt-3 text-center align-bottom font-medium text-text"
                       >
-                        <div className="text-[13px] leading-tight">{head}</div>
+                        <div className="text-[15px] leading-tight">{head}</div>
                         {sub && (
                           <div
-                            className="mx-auto mt-1 max-w-[148px] truncate text-[10.5px] font-normal text-muted/70"
+                            className="mx-auto mt-1 max-w-[148px] truncate text-[12px] font-normal text-muted/70"
                             title={sub}
                           >
                             {sub}
@@ -246,7 +250,7 @@ export function QRegWorkbench({
                           // The one piece of UI inside the typeset table, so it
                           // declares itself as a control: a small segmented pill,
                           // colour only on hover.
-                          <div className="mx-auto flex w-max items-center overflow-hidden whitespace-nowrap rounded-full border border-border font-sans text-[10.5px] leading-none">
+                          <div className="mx-auto flex w-max items-center overflow-hidden whitespace-nowrap rounded-full border border-border font-sans text-[13px] leading-none">
                             <button
                               onClick={() => adopt(i)}
                               className="px-2.5 py-[5px] text-muted transition-colors hover:bg-ok/10 hover:text-ok"
@@ -262,8 +266,8 @@ export function QRegWorkbench({
                             </button>
                           </div>
                         ) : (
-                          <div className="flex items-center justify-center gap-1 whitespace-nowrap font-sans text-[10.5px] text-ok/90">
-                            <Check size={11} /> {t("Adopted")}
+                          <div className="flex items-center justify-center gap-1 whitespace-nowrap font-sans text-[13px] text-ok/90">
+                            <Check size={13} /> {t("Adopted")}
                           </div>
                         )}
                       </td>
@@ -276,7 +280,7 @@ export function QRegWorkbench({
                   <tr key={v}>
                     <td
                       className={cn(
-                        "sticky left-0 z-10 bg-surface py-[5px] pl-1 pr-10 align-top text-[13px] text-text",
+                        "sticky left-0 z-10 bg-surface py-[5px] pl-1 pr-10 align-top text-[16px] text-text",
                         r === 0 && "pt-3.5",
                       )}
                     >
@@ -298,11 +302,11 @@ export function QRegWorkbench({
                         >
                           {c ? (
                             <>
-                              <div className="text-[13.5px]">
+                              <div className="text-[16px]">
                                 {fmtNum(c.b)}
-                                <span className="align-super text-[9px]">{stars(c.p)}</span>
+                                <span className="align-super text-[10px]">{stars(c.p)}</span>
                               </div>
-                              <div className="text-[12px] text-muted">({fmtNum(c.se)})</div>
+                              <div className="text-[13px] text-muted">({fmtNum(c.se)})</div>
                             </>
                           ) : (
                             <span className="text-muted">—</span>
@@ -313,34 +317,34 @@ export function QRegWorkbench({
                   </tr>
                 ))}
                 <tr className="border-t border-border">
-                  <td className="sticky left-0 z-10 bg-surface pb-[3px] pl-1 pr-10 pt-2 text-[13px] text-text">
+                  <td className="sticky left-0 z-10 bg-surface pb-[3px] pl-1 pr-10 pt-2 text-[15px] text-text">
                     N
                   </td>
                   {doc.models.map((m, i) => (
                     <td
                       key={i}
                       className={cn(
-                        "px-6 pb-[3px] pt-2 text-center text-[13px] tabular-nums text-text transition-opacity duration-300",
+                        "px-6 pb-[3px] pt-2 text-center text-[15px] tabular-nums text-text transition-opacity duration-300",
                         candidateCol[i] && "opacity-60",
                       )}
                     >
-                      {m.n}
+                      {num(m.n) != null ? num(m.n) : "—"}
                     </td>
                   ))}
                 </tr>
                 <tr className="border-b-[1.5px] border-text">
-                  <td className="sticky left-0 z-10 bg-surface pb-2 pl-1 pr-10 pt-[3px] text-[13px] text-text">
+                  <td className="sticky left-0 z-10 bg-surface pb-2 pl-1 pr-10 pt-[3px] text-[15px] text-text">
                     R²
                   </td>
                   {doc.models.map((m, i) => (
                     <td
                       key={i}
                       className={cn(
-                        "px-6 pb-2 pt-[3px] text-center text-[13px] tabular-nums text-text transition-opacity duration-300",
+                        "px-6 pb-2 pt-[3px] text-center text-[15px] tabular-nums text-text transition-opacity duration-300",
                         candidateCol[i] && "opacity-60",
                       )}
                     >
-                      {m.r2 != null ? m.r2.toFixed(3) : "—"}
+                      {num(m.r2) != null ? num(m.r2)!.toFixed(3) : "—"}
                     </td>
                   ))}
                 </tr>
@@ -357,17 +361,17 @@ export function QRegWorkbench({
             )}
             </div>
 
-            <div className="mt-4 text-center font-serif text-[11.5px] leading-relaxed text-muted">
+            <div className="mt-4 text-center font-serif text-[13px] leading-relaxed text-muted">
               {t("Standard errors in parentheses.")} * p&lt;0.1, ** p&lt;0.05, *** p&lt;0.01
             </div>
 
             <details className="mt-8">
-              <summary className="cursor-pointer select-none text-[11px] text-muted transition-colors hover:text-text">
+              <summary className="cursor-pointer select-none text-[12px] text-muted transition-colors hover:text-text">
                 {t("Model commands (do-file provenance)")}
               </summary>
               <div className="mt-2 space-y-1 rounded-input bg-surface-2 px-3 py-2">
                 {doc.models.map((m, i) => (
-                  <div key={i} className="font-mono text-[10.5px] leading-relaxed text-muted">
+                  <div key={i} className="font-mono text-[11px] leading-relaxed text-muted">
                     <span className="text-text">{m.name}</span> · {m.cmd}
                   </div>
                 ))}

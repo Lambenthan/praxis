@@ -1,12 +1,12 @@
 [package]
-name = "ai4s-workbench"
-version = "0.1.2"
-description = "AI4S Workbench Desktop"
-authors = ["AI4S Workbench contributors"]
+name = "fishes"
+version = "0.1.3"
+description = "Fishes Desktop"
+authors = ["Fishes contributors"]
 edition = "2021"
 
 [lib]
-name = "ai4s_workbench_lib"
+name = "fishes_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
@@ -24,3 +24,10 @@ tauri-plugin-process = "2"
 tauri-plugin-updater = "2"
 getrandom = "0.4.3"
 opener = "0.8.5"
+# Live "does this API key actually work" checks in the setup gate. Already in
+# the tree via tauri-plugin-updater, so this adds no new transitive weight.
+# system-proxy: LLM endpoints outside China need the user's system proxy.
+reqwest = { version = "0.13", default-features = false, features = ["rustls", "system-proxy"] }
+rusqlite = { version = "0.40.1", features = ["bundled"] }
+pdf-extract = "0.12.0"
+regex = "1.13.1"

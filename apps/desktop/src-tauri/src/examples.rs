@@ -1,15 +1,16 @@
-// Built-in example projects: real, small datasets bundled as Tauri resources
-// and copied into the workspace on demand, so the agent runs a genuine analysis
-// on genuine data. The bundled hard-science demos (climate/BCI) were dropped —
-// this is a social-science workbench — so the list is currently empty; add a
-// social-science demo dataset here and to tauri.conf's resources to restore it.
+// Built-in example runs: the REAL artifact files (figures, do-files, .qreg,
+// the review PDF/Word) produced by the three transcript sessions embedded as
+// examples. Opening an example materializes its folder under
+// `<workspace base>/examples/<name>`, so every file card in the transcript
+// opens a genuine file through the same preview path a live session uses —
+// nothing in the examples is a mock-up.
 use std::path::Path;
 use tauri::{path::BaseDirectory, AppHandle, Manager};
 
-use crate::runtime::workspace_dir;
+use crate::runtime::base_workspace_dir;
 
-/// Bundled example projects; the command rejects anything else.
-const EXAMPLES: &[&str] = &[];
+/// Bundled example runs; the command rejects anything else.
+const EXAMPLES: &[&str] = &["figure", "regression", "review"];
 
 /// Copy `src` into `dst` recursively WITHOUT overwriting existing files — a
 /// re-installed example must never clobber the user's edited copy.
@@ -27,8 +28,9 @@ fn copy_missing(src: &Path, dst: &Path) -> std::io::Result<()> {
     Ok(())
 }
 
-/// Copy a bundled example project into the workspace (idempotent, never
-/// overwrites) and return its workspace-relative directory name.
+/// Copy a bundled example run into `<base>/examples/<name>` (idempotent,
+/// never overwrites) and return its base-relative path — the frontend opens
+/// the files with root "base", exactly as it opens any other real file.
 #[tauri::command(async)]
 pub fn install_example(app: AppHandle, name: String) -> Result<String, String> {
     if !EXAMPLES.contains(&name.as_str()) {
@@ -41,9 +43,9 @@ pub fn install_example(app: AppHandle, name: String) -> Result<String, String> {
     if !src.is_dir() {
         return Err("example not bundled in this build".into());
     }
-    let dst = workspace_dir(&app)?.join(&name);
+    let dst = base_workspace_dir(&app)?.join("examples").join(&name);
     copy_missing(&src, &dst).map_err(|e| format!("example install failed: {e}"))?;
-    Ok(name)
+    Ok(format!("examples/{name}"))
 }
 
 #[cfg(test)]

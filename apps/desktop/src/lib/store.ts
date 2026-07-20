@@ -6,10 +6,11 @@ const THEME_KEY = "ai4s.theme";
 const SIDEBAR_WIDTH_KEY = "ai4s.sidebar.width";
 const SIDEBAR_COLLAPSED_KEY = "ai4s.sidebar.collapsed";
 const INSPECTOR_WIDTH_KEY = "ai4s.inspector.width";
+const GUIDED_MODE_KEY = "fishes.guided-mode";
 
 export const SIDEBAR_MIN = 184;
 export const SIDEBAR_MAX = 340;
-export const SIDEBAR_DEFAULT = 232;
+export const SIDEBAR_DEFAULT = 220; // handoff rail width
 
 export const INSPECTOR_MIN = 360;
 export const INSPECTOR_MAX = 960;
@@ -50,6 +51,12 @@ interface UiState {
   /** One-shot text placed into the composer by another surface (e.g. the
    *  provenance Reproduce action) — consumed on the next composer render. */
   composerDraft: string | null;
+  /** Guided research mode: when on, the "start a project" entries bind the
+   *  resident research navigator (step-by-step guidance). When off — the
+   *  default — they only set up the folder and leave the researcher in
+   *  charge. Persisted; also flippable per session in the header. */
+  guidedMode: boolean;
+  setGuidedMode: (on: boolean) => void;
   setTheme: (theme: Theme) => void;
   toggleTheme: () => void;
   setInspectorOpen: (open: boolean) => void;
@@ -60,11 +67,21 @@ interface UiState {
   setSidebarWidth: (width: number) => void;
   setPaletteOpen: (open: boolean) => void;
   setComposerDraft: (draft: string | null) => void;
+  /** VS-Code-style soft gate: with no project open, the workspace gate blocks
+   *  the composer until the researcher opens/creates a project — OR explicitly
+   *  chooses to work in a blank scratch workspace (this flag). Session-ephemeral
+   *  (resets each launch) so the gate reappears next start. */
+  blankWorkspaceOk: boolean;
+  setBlankWorkspaceOk: (ok: boolean) => void;
 }
 
 export const useUiStore = create<UiState>((set, get) => ({
   theme: initialTheme(),
-  inspectorOpen: true,
+  // Start closed so a session opens with the conversation at full width — the
+  // inspector opens when the user (or the agent, for notebooks) opens an
+  // artifact. Auto-expanding it on entry squeezed the thread, badly so on
+  // narrow windows / zoomed-in views.
+  inspectorOpen: false,
   sidebarCollapsed:
     typeof window !== "undefined" && window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1",
   sidebarWidth: initialSidebarWidth(),
@@ -97,6 +114,15 @@ export const useUiStore = create<UiState>((set, get) => ({
     set({ sidebarWidth });
   },
   setPaletteOpen: (paletteOpen) => set({ paletteOpen }),
+  blankWorkspaceOk: false,
+  setBlankWorkspaceOk: (blankWorkspaceOk) => set({ blankWorkspaceOk }),
   composerDraft: null,
   setComposerDraft: (composerDraft) => set({ composerDraft }),
+  guidedMode:
+    typeof window !== "undefined" && window.localStorage.getItem(GUIDED_MODE_KEY) === "1",
+  setGuidedMode: (guidedMode) => {
+    if (typeof window !== "undefined")
+      window.localStorage.setItem(GUIDED_MODE_KEY, guidedMode ? "1" : "0");
+    set({ guidedMode });
+  },
 }));

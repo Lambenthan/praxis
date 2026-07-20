@@ -10,9 +10,9 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": r("./src"),
-      "@ai4s/shared": r("../../packages/shared/src/index.ts"),
-      "@ai4s/sdk/mock-server": r("../../packages/sdk/src/mockServer.ts"),
-      "@ai4s/sdk": r("../../packages/sdk/src/index.ts"),
+      "@fishes/shared": r("../../packages/shared/src/index.ts"),
+      "@fishes/sdk/mock-server": r("../../packages/sdk/src/mockServer.ts"),
+      "@fishes/sdk": r("../../packages/sdk/src/index.ts"),
     },
   },
   test: {

@@ -67,9 +67,61 @@ function RenderState({ error, loading }: { error: string | null; loading: boolea
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
+// The reading canvas around the document: docx-preview's own chrome is a harsh
+// gray ground with the sheet jammed edge-to-edge once fit() zooms it. Restyle
+// it as a paper page — the app's warm backdrop, a centered white sheet with a
+// soft shadow, and a line-height floor so documents that carry no explicit
+// spacing (Word's "single") still read comfortably on screen. Explicit spacing
+// in the file always wins over the floor.
+const DOCX_CSS = `
+  .page { background: #e3e5e1; }
+  .docx-wrapper {
+    background: #e3e5e1 !important;
+    padding: 32px 30px 56px !important;
+    -webkit-font-smoothing: antialiased;
+  }
+  /* The document keeps its OWN page size and margins — the preview only adds
+     the reading chrome (ground, shadow) around the sheet. A margin floor for
+     files whose side margins render near-zero is applied per-element after
+     render (see liftNarrowMargins), never by overriding every document. */
+  .docx-wrapper > section.docx {
+    box-shadow: 0 1px 3px rgba(30, 42, 58, 0.18), 0 10px 32px rgba(30, 42, 58, 0.14) !important;
+    border-radius: 3px;
+    margin-bottom: 28px !important;
+  }
+`;
+
+/** Side-margin floor: some files (or their converters) carry near-zero page
+ *  margins, so text sits against the sheet edge. Lift only sections whose
+ *  rendered side padding is below ~1.5cm up to a modest 64px; documents with
+ *  real margins keep them exactly. docx-preview sections are border-box, so
+ *  this narrows the text column without changing the sheet width. */
+function liftNarrowMargins(root: HTMLElement) {
+  for (const s of root.querySelectorAll<HTMLElement>("section.docx")) {
+    const cs = getComputedStyle(s);
+    if (parseFloat(cs.paddingLeft) < 56) s.style.paddingLeft = "64px";
+    if (parseFloat(cs.paddingRight) < 56) s.style.paddingRight = "64px";
+  }
+}
+
+/** Readability floor for the preview: documents whose paragraphs carry Word's
+ *  "single" spacing (≈1.15, or none at all) read as a wall of text on screen.
+ *  After render, lift any body paragraph tighter than ~1.4 up to 1.5 — this is
+ *  a DOM pass, so it wins over the file's inline styles, which a stylesheet
+ *  floor cannot. Paragraphs with comfortable spacing keep their own. */
+function liftTightLineHeights(root: HTMLElement) {
+  for (const p of root.querySelectorAll<HTMLElement>("section.docx p")) {
+    if (!p.textContent?.trim()) continue;
+    const cs = getComputedStyle(p);
+    const fs = parseFloat(cs.fontSize);
+    const lh = parseFloat(cs.lineHeight); // NaN for "normal" — treat as tight
+    if (fs && (!lh || lh / fs < 1.38)) p.style.lineHeight = "1.5";
+  }
+}
+
 export function DocxView({ bytes, scrollKey }: { bytes: ArrayBuffer; scrollKey: string }) {
   const t = useT();
-  const { hostRef, page } = useShadowPage();
+  const { hostRef, page } = useShadowPage(DOCX_CSS);
   const wrapRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -91,7 +143,10 @@ export function DocxView({ bytes, scrollKey }: { bytes: ArrayBuffer; scrollKey: 
       const section = wrapper?.querySelector<HTMLElement>("section");
       const avail = wrapRef.current?.clientWidth;
       if (!wrapper || !section || !avail) return;
-      const pageWidth = section.offsetWidth + 40; // section + wrapper padding
+      // Keep the wrapper's horizontal padding visible as a gutter (DOCX_CSS
+      // sets 30px each side), so the sheet reads as paper on a ground rather
+      // than filling the pane edge-to-edge.
+      const pageWidth = section.offsetWidth + 60;
       wrapper.style.zoom = String(Math.min(1, avail / pageWidth));
     };
 
@@ -103,6 +158,8 @@ export function DocxView({ bytes, scrollKey }: { bytes: ArrayBuffer; scrollKey: 
         // chrome (white sheet on gray) applies untouched by app CSS.
         await renderAsync(bytes, page, page, { inWrapper: true });
         if (cancelled) return;
+        liftTightLineHeights(page);
+        liftNarrowMargins(page);
         fit();
         if (wrapRef.current) {
           observer = new ResizeObserver(fit);

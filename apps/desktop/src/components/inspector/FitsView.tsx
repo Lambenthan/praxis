@@ -134,7 +134,7 @@ function ImageView({ filename, img }: { filename: string; img: FitsImage }) {
     <div className="flex h-full flex-col bg-[#0f0f14]">
       <Toolbar
         left={
-          <span className="truncate font-mono text-[11px] text-white/50">
+          <span className="truncate font-mono text-[12px] text-white/50">
             {filename} · {img.width}×{img.height}
             {img.bunit ? ` · ${img.bunit}` : ""}
           </span>
@@ -160,7 +160,7 @@ function ImageView({ filename, img }: { filename: string; img: FitsImage }) {
 
       <div className="flex items-center gap-3 border-t border-white/10 px-3 py-2">
         <Colorbar cmap={cmap} stretch={stretch} lo={img.lo} hi={img.hi} unit={img.bunit} />
-        <div className="ml-auto min-h-[2.25rem] text-right font-mono text-[11px] text-white/70">
+        <div className="ml-auto min-h-[2.25rem] text-right font-mono text-[12px] text-white/70">
           {hover ? (
             <>
               <div>
@@ -253,7 +253,7 @@ function SpectrumView({ filename, spec }: { filename: string; spec: import("@/li
     <div className="flex h-full flex-col bg-surface">
       <Toolbar
         left={
-          <span className="truncate font-mono text-[11px] text-muted">
+          <span className="truncate font-mono text-[12px] text-muted">
             {filename} · {t("spectrum")} · {length} {t("samples")}
           </span>
         }
@@ -292,7 +292,7 @@ function SpectrumView({ filename, spec }: { filename: string; spec: import("@/li
           </text>
         </svg>
       </div>
-      <div className="border-t border-border px-3 py-2 text-right font-mono text-[11px] text-muted">
+      <div className="border-t border-border px-3 py-2 text-right font-mono text-[12px] text-muted">
         {hover ? (
           <>
             {ctype1 ?? "x"} = {(x0 + dx * hover.i).toPrecision(6)} · {t("value")} = {data[hover.i].toPrecision(5)}
@@ -330,7 +330,7 @@ function Segmented({
           key={o}
           onClick={() => onChange(o)}
           className={cn(
-            "px-2 py-1 text-[11px] font-medium capitalize transition-colors",
+            "px-2 py-1 text-[12px] font-medium capitalize transition-colors",
             value === o ? "bg-white/20 text-white" : "bg-transparent text-white/50 hover:text-white/80",
           )}
         >

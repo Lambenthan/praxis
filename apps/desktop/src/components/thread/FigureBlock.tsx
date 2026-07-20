@@ -1,7 +1,7 @@
 import { useState, type MouseEvent } from "react";
 import * as Popover from "@radix-ui/react-popover";
 import { Download } from "lucide-react";
-import type { FigureAnnotation, FigureBlock as FigureBlockT } from "@ai4s/shared";
+import type { FigureAnnotation, FigureBlock as FigureBlockT } from "@fishes/shared";
 import { saveTextWithFeedback } from "@/lib/download";
 import { useT } from "@/lib/i18n";
 

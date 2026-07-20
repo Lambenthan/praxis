@@ -32,15 +32,15 @@ saved as files in your workspace, and the app documents how your data is handled
 
 | Installer | When to use |
 |---|---|
-| **[`Fishes_0.2.1_x64-setup.exe`](https://github.com/Lambenthan/fishes/releases/download/v0.2.1/Fishes_0.2.1_x64-setup.exe)** ✅ **recommended** | Most users. One-click install, smaller, auto-updates. |
-| [`Fishes_0.2.1_x64_en-US.msi`](https://github.com/Lambenthan/fishes/releases/download/v0.2.1/Fishes_0.2.1_x64_en-US.msi) | Alternative — MSI-based / managed deployment. |
+| **[`Fishes_0.3.0_x64-setup.exe`](https://github.com/Lambenthan/fishes/releases/download/v0.3.0/Fishes_0.3.0_x64-setup.exe)** ✅ **recommended** | Most users. One-click install, smaller, auto-updates. |
+| [`Fishes_0.3.0_x64_en-US.msi`](https://github.com/Lambenthan/fishes/releases/download/v0.3.0/Fishes_0.3.0_x64_en-US.msi) | Alternative — MSI-based / managed deployment. |
 
 Most people should just download the **`.exe`**. All builds live on the
 [**Releases**](https://github.com/Lambenthan/fishes/releases/latest) page.
 
 **macOS (Apple Silicon)** — download the DMG, open it, and drag Fishes to Applications:
 
-[`Fishes_0.2.1_aarch64.dmg`](https://github.com/Lambenthan/fishes/releases/download/v0.2.1/Fishes_0.2.1_aarch64.dmg)
+[`Fishes_0.3.0_aarch64.dmg`](https://github.com/Lambenthan/fishes/releases/download/v0.3.0/Fishes_0.3.0_aarch64.dmg)
 
 The macOS build is not notarized by Apple yet, so the **first** launch is blocked by Gatekeeper (it is safe — there is just no paid Apple signature). Allow it once:
 

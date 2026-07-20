@@ -35,6 +35,18 @@ export async function runtimePassword(): Promise<string | null> {
 }
 
 /**
+ * Whether a saved provider key exists on DISK (the app-private auth.json) —
+ * a filesystem fact the first-run gate can read the moment the window opens,
+ * long before the sidecar is up. Corrects a stale localStorage "setup done"
+ * flag after an app-data wipe: disk truth over webview memory.
+ */
+export async function setupCompletedOnDisk(): Promise<boolean> {
+  if (!isTauri) return true;
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<boolean>("setup_completed_on_disk");
+}
+
+/**
  * Pick local files via the native dialog and copy them into the agent
  * workspace (desktop only). Returns the workspace file names; [] on cancel.
  */
@@ -92,6 +104,23 @@ export async function removeConfigEntry(section: "provider" | "mcp", key: string
   await invoke("remove_config_entry", { section, key });
 }
 
+/** Bundled skills the user has disabled (profile skill directory names). Empty
+ *  in browser dev, where the profile is not managed by the desktop shell. */
+export async function listDisabledSkills(): Promise<string[]> {
+  if (!isTauri) return [];
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<string[]>("list_disabled_skills");
+}
+
+/** Enable/disable a bundled skill by its profile directory name. Disabling
+ *  removes the skill from the runtime so the agent can no longer load it; the
+ *  sidecar restarts either way, so the caller must reconnect. */
+export async function setSkillDisabled(name: string, disabled: boolean): Promise<void> {
+  if (!isTauri) throw new Error("not running in the desktop app");
+  const { invoke } = await import("@tauri-apps/api/core");
+  await invoke("set_skill_disabled", { name, disabled });
+}
+
 export interface JupyterStatus {
   installed: boolean;
   running: boolean;
@@ -135,6 +164,43 @@ export async function setupScienceMcp(pkg: string): Promise<string> {
   if (!isTauri) throw new Error("not running in the desktop app");
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke<string>("setup_science_mcp", { package: pkg });
+}
+
+/** The user's final say on where Stata lives: a native picker chooses the
+ *  Stata program (or .app bundle on macOS), which gets pinned into the
+ *  bridge's own config. Resolves to the pinned CLI path, or null on cancel —
+ *  the caller re-tests the bridge afterwards. */
+export async function pinStataCli(): Promise<string | null> {
+  if (!isTauri) throw new Error("not running in the desktop app");
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<string | null>("pin_stata_cli");
+}
+
+/** Delete the shared isolated env so the next setup starts clean — the silent
+ *  self-heal for a half-written env (interrupted download, broken install). */
+export async function resetScienceMcpEnv(): Promise<void> {
+  if (!isTauri) throw new Error("not running in the desktop app");
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<void>("reset_science_mcp_env");
+}
+
+/** Make one real request with a pasted API key so "connected" is a verified
+ *  fact, not a saved string. Rejects with "<code>: detail" where code is
+ *  invalid_key | no_balance | rate_limited | network | provider_error —
+ *  translate the code, show the detail small. */
+export async function verifyProviderKey(provider: string, key: string): Promise<void> {
+  if (!isTauri) return; // browser dev: nothing to verify against
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<void>("verify_provider_key", { provider, key });
+}
+
+/** Post-enable Stata check: isolated env exists, bridge package installed,
+ *  Stata found on disk. Resolves to the detected edition string; rejects with
+ *  "<code>: detail" (bridge_env_missing | bridge_import | stata_not_found). */
+export async function testStataBridge(pkg: string): Promise<string> {
+  if (!isTauri) throw new Error("not running in the desktop app");
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<string>("test_stata_bridge", { package: pkg });
 }
 
 /** Auto-start Jupyter on launch when it was enabled before. Silent no-op otherwise. */
@@ -240,11 +306,25 @@ export async function newDatedWorkspace(name: string): Promise<string> {
   return invoke<string>("new_dated_workspace", { name });
 }
 
+/** Whether an absolute path exists as a directory (false in the browser). */
+export async function dirExists(path: string): Promise<boolean> {
+  if (!isTauri) return false;
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<boolean>("dir_exists", { path });
+}
+
 /** Native folder picker; null on cancel or in the browser. */
 export async function pickFolder(): Promise<string | null> {
   if (!isTauri) return null;
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke<string | null>("pick_folder");
+}
+
+/** Whether the China mirror set (npmmirror/TUNA) is active for uv/pip. */
+export async function chinaMirrorsActive(): Promise<boolean> {
+  if (!isTauri) return false;
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<boolean>("china_mirrors_active");
 }
 
 export interface ToolStatus {

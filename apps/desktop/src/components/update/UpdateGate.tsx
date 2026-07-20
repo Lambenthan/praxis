@@ -133,7 +133,7 @@ export function UpdateGate({ mandatory = false }: { mandatory?: boolean }) {
                 style={{ width: `${pct ?? 5}%` }}
               />
             </div>
-            <p className="mt-2 text-[11px] text-muted/80">
+            <p className="mt-2 text-[12px] text-muted/80">
               {t("The app will restart into the new version when this finishes.")}
             </p>
           </div>

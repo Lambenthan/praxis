@@ -58,7 +58,7 @@ export function BandView({ filename, bytes }: { filename: string; bytes: ArrayBu
   return (
     <div className="flex h-full flex-col bg-surface">
       <div className="flex items-center gap-2 border-b border-border px-3 py-2">
-        <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-muted">
+        <span className="min-w-0 flex-1 truncate font-mono text-[12px] text-muted">
           {filename} · {t("bands")} · {d.nbands} {t("bands")} × {d.nkpts} {t("k-points")}
           {d.spin ? ` · ${t("spin-polarized")}` : ""}
         </span>
@@ -113,7 +113,7 @@ export function BandView({ filename, bytes }: { filename: string; bytes: ArrayBu
         </svg>
       </div>
 
-      <div className="border-t border-border px-3 py-2 text-right font-mono text-[11px] text-muted">
+      <div className="border-t border-border px-3 py-2 text-right font-mono text-[12px] text-muted">
         {hover ? (
           <>k = {hover.k} · E ≈ {hover.e.toFixed(2)} eV</>
         ) : (

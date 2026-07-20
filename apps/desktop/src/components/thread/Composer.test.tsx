@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { useUiStore } from "@/lib/store";
+import { useRuntimeStore } from "@/lib/runtime";
 import { Composer } from "./Composer";
 
 describe("Composer", () => {
@@ -63,6 +64,10 @@ describe("Composer", () => {
 
     rerender(<Composer onSend={vi.fn()} onStop={onStop} />);
     expect(screen.queryByLabelText("Stop")).toBeNull();
+    // Handoff: the send button appears only once there is something to send
+    // (empty composer ends at the model picker — no idle disabled button).
+    expect(screen.queryByLabelText("Send")).toBeNull();
+    fireEvent.change(screen.getByLabelText("Ask anything"), { target: { value: "hi" } });
     expect(screen.getByLabelText("Send")).toBeInTheDocument();
   });
 });
@@ -279,6 +284,53 @@ describe("Composer input history (↑/↓)", () => {
     input.setSelectionRange(0, 0);
     fireEvent.keyDown(input, { key: "ArrowUp" });
     expect(input.value).toBe("/");
+  });
+});
+
+describe("Composer '#' session summon", () => {
+  const withSessions = () =>
+    useRuntimeStore.setState({
+      sessions: [
+        { id: "s1", title: "remote work interview" },
+        { id: "s2", title: "green transition design" },
+      ] as never,
+    });
+
+  it("opens a session listbox on '#', and Enter completes the reference instead of sending", () => {
+    withSessions();
+    const onSend = vi.fn();
+    render(<Composer onSend={onSend} />);
+    const input = screen.getByLabelText<HTMLTextAreaElement>("Ask anything");
+    fireEvent.change(input, { target: { value: "look at #rem" } });
+
+    // The menu is open with the one matching session — not the whole list.
+    expect(screen.getByRole("listbox")).toBeInTheDocument();
+    const options = screen.getAllByRole("option");
+    expect(options).toHaveLength(1);
+    expect(options[0]).toHaveAttribute("aria-selected", "true");
+
+    // Enter must complete the token (quoted title + trailing space), NOT send
+    // the raw "#rem" — the regression this guards against.
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(onSend).not.toHaveBeenCalled();
+    expect(input.value).toBe('look at "remote work interview" ');
+    expect(screen.queryByRole("listbox")).toBeNull();
+  });
+
+  it("ArrowDown moves the selection; Escape closes the menu without sending", () => {
+    withSessions();
+    const onSend = vi.fn();
+    render(<Composer onSend={onSend} />);
+    const input = screen.getByLabelText<HTMLTextAreaElement>("Ask anything");
+    fireEvent.change(input, { target: { value: "#" } });
+    expect(screen.getAllByRole("option")).toHaveLength(2);
+
+    fireEvent.keyDown(input, { key: "ArrowDown" });
+    expect(screen.getAllByRole("option")[1]).toHaveAttribute("aria-selected", "true");
+
+    fireEvent.keyDown(input, { key: "Escape" });
+    expect(screen.queryByRole("listbox")).toBeNull();
+    expect(onSend).not.toHaveBeenCalled();
   });
 });
 

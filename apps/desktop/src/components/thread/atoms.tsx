@@ -1,21 +1,31 @@
 import { useEffect, useState } from "react";
-import { Loader2, Paperclip } from "lucide-react";
+import { Loader2, Paperclip, Undo2 } from "lucide-react";
 import type {
   ArtifactBlock,
   DataTableBlock,
   RunningJobsBlock,
   StatusLineBlock,
   UserMessageBlock,
-} from "@ai4s/shared";
+} from "@fishes/shared";
 import { cn } from "@/lib/cn";
+import { useT } from "@/lib/i18n";
+import { useRuntimeStore } from "@/lib/runtime";
+import { useThrottledValue } from "@/lib/useThrottledValue";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { MarkdownViewer } from "@/components/markdown-viewer/MarkdownViewer";
 import { extractArtifactRefs, refToArtifactBlock } from "@/lib/artifacts";
 import { resolveArtifactPath } from "@/lib/artifactFile";
 
 export function UserMessage({ block }: { block: UserMessageBlock }) {
+  // Handoff: user turns are a right-aligned bubble, not a full-width card.
   return (
-    <div className="rounded-card bg-surface-2 px-4 py-3 text-[15px] leading-relaxed text-text">
-      {block.text}
+    <div className="flex justify-end">
+      <div
+        data-user-message
+        className="max-w-[75%] whitespace-pre-wrap break-words rounded-bubble bg-bg-300 px-3.5 py-[9px] text-[15px] leading-[1.6] text-text-000"
+      >
+        {block.text}
+      </div>
     </div>
   );
 }
@@ -27,11 +37,18 @@ export function AgentMessage({
   markdown: string;
   onOpenArtifact?: (a: ArtifactBlock) => void;
 }) {
+  // While a reply streams, `markdown` changes on every token — and re-parsing
+  // the WHOLE growing text each time (remark + remark-gfm + KaTeX) is O(n²)
+  // across the turn. Parse a throttled copy instead: the visible text catches
+  // up a few times per second, and the trailing update guarantees the final
+  // text always lands. Settled messages never change, so this is a no-op for
+  // history.
+  const display = useThrottledValue(markdown, 150);
   // Files the agent mentions (e.g. a PDF produced by running code) become clickable.
   // Each mention is resolved to a real workspace path first — prose often names a
   // bare filename ("index.html") whose file lives in a subdirectory; mentions of
   // files that don't exist get no chip.
-  const mentioned = onOpenArtifact ? extractArtifactRefs(markdown) : [];
+  const mentioned = onOpenArtifact ? extractArtifactRefs(display) : [];
   const [refs, setRefs] = useState<string[]>([]);
   const mentionedKey = mentioned.join("\n");
   useEffect(() => {
@@ -52,7 +69,7 @@ export function AgentMessage({
   }, [mentionedKey]);
   return (
     <div>
-      <MarkdownViewer>{markdown}</MarkdownViewer>
+      <MarkdownViewer>{display}</MarkdownViewer>
       {refs.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-2">
           {refs.map((path) => (
@@ -96,7 +113,7 @@ export function DataTable({ block }: { block: DataTableBlock }) {
                   key={j}
                   className={cn(
                     "px-4 py-2 text-text",
-                    j === row.length - 1 && "font-mono text-[13px] text-link",
+                    j === row.length - 1 && "font-mono text-[14px] text-link",
                   )}
                 >
                   {cell}
@@ -136,7 +153,54 @@ const TONE: Record<NonNullable<StatusLineBlock["tone"]>, string> = {
   error: "text-error",
 };
 
+function fmtTokens(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
+  return String(n);
+}
+
 export function StatusLine({ block }: { block: StatusLineBlock }) {
+  const t = useT();
+  // The Undo confirmation goes through the in-app ConfirmDialog — window.confirm
+  // is a no-op inside the desktop webview (Tauri doesn't wire the native panel),
+  // which made the Undo button silently do nothing when clicked.
+  const [confirmUndo, setConfirmUndo] = useState(false);
+  // A usage footer: faint, right-aligned, tokens + optional USD cost — the
+  // per-turn "what did this cost" a researcher watches.
+  if (block.usage) {
+    const messageId = block.usage.messageId;
+    return (
+      <div className="group/footer flex items-center justify-end gap-3 pr-1 text-[12px] tabular-nums text-muted/70">
+        {messageId && (
+          <button
+            onClick={() => setConfirmUndo(true)}
+            className="flex items-center gap-1 rounded-input px-1.5 py-0.5 text-muted/60 opacity-0 transition group-hover/footer:opacity-100 hover:bg-surface-2 hover:text-text"
+            title={t("Undo this turn")}
+          >
+            <Undo2 size={12} /> {t("Undo")}
+          </button>
+        )}
+        {confirmUndo && messageId && (
+          <ConfirmDialog
+            title={t("Undo this turn")}
+            body={t("Undo this turn? The reply and everything after it is removed.")}
+            confirmLabel={t("Undo")}
+            onConfirm={() => {
+              setConfirmUndo(false);
+              void useRuntimeStore.getState().revertTo(messageId);
+            }}
+            onCancel={() => setConfirmUndo(false)}
+          />
+        )}
+        <span>
+          {fmtTokens(block.usage.tokens)} {t("tokens")}
+        </span>
+        {typeof block.usage.cost === "number" && block.usage.cost > 0 && (
+          <span>${block.usage.cost.toFixed(block.usage.cost < 0.01 ? 4 : 3)}</span>
+        )}
+      </div>
+    );
+  }
   return (
     <div className={cn("flex items-center gap-2 text-sm", TONE[block.tone ?? "review"])}>
       <Loader2

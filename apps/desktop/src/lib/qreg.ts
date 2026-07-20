@@ -84,20 +84,40 @@ export function rejectModel(doc: QRegDoc, index: number): QRegDoc {
   return { ...doc, models: doc.models.filter((_, i) => i !== index) };
 }
 
-/** Significance stars, economics convention: * p<0.1, ** p<0.05, *** p<0.01. */
-export function stars(p: number): string {
-  if (p < 0.01) return "***";
-  if (p < 0.05) return "**";
-  if (p < 0.1) return "*";
+/** Coerce whatever the model wrote — number, numeric string, "1,234", null —
+ *  into a real number, or null when it truly isn't one. The .qreg is
+ *  model-authored, so a coefficient can arrive as "1.747" or even "1,747";
+ *  every consumer normalises through this so the table always formats the
+ *  same regardless of how the value was serialised. */
+export function num(x: unknown): number | null {
+  if (typeof x === "number") return Number.isFinite(x) ? x : null;
+  if (typeof x === "string") {
+    const v = Number(x.replace(/,/g, "").trim());
+    return Number.isFinite(v) ? v : null;
+  }
+  return null;
+}
+
+/** Significance stars, economics convention: * p<0.1, ** p<0.05, *** p<0.01.
+ *  A missing or non-numeric p simply yields no stars. */
+export function stars(p: unknown): string {
+  const v = num(p);
+  if (v === null) return "";
+  if (v < 0.01) return "***";
+  if (v < 0.05) return "**";
+  if (v < 0.1) return "*";
   return "";
 }
 
-/** Table number format: wide numbers lose decimals, small ones keep precision. */
-export function fmtNum(x: number): string {
-  const a = Math.abs(x);
-  if (a >= 1000) return x.toFixed(0);
-  if (a >= 10) return x.toFixed(2);
-  return x.toFixed(3);
+/** Table number format: wide numbers lose decimals, small ones keep precision.
+ *  Dirty input (string, null, NaN) renders as an em dash, never "NaN". */
+export function fmtNum(x: unknown): string {
+  const v = num(x);
+  if (v === null) return "—";
+  const a = Math.abs(v);
+  if (a >= 1000) return v.toFixed(0);
+  if (a >= 10) return v.toFixed(2);
+  return v.toFixed(3);
 }
 
 /** Row order for the combined table: union of variables across models in

@@ -1,4 +1,4 @@
-import type { FindingLevel, ReviewCheck, ReviewerBlock } from "@ai4s/shared";
+import type { FindingLevel, ReviewCheck, ReviewerBlock } from "@fishes/shared";
 
 const FENCE = /```review\s*\n([\s\S]*?)\n```/;
 const LEVELS: FindingLevel[] = ["ok", "warn", "error"];

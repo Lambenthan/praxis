@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Check, HelpCircle, ShieldQuestion } from "lucide-react";
-import type { PermissionAskedEvent, PermissionReply, QuestionAskedEvent } from "@ai4s/sdk";
+import type { PermissionAskedEvent, PermissionReply, QuestionAskedEvent } from "@fishes/sdk";
+import { useRuntimeStore } from "@/lib/runtime";
 import { cn } from "@/lib/cn";
 import { useT } from "@/lib/i18n";
 
@@ -144,7 +145,7 @@ function QuestionCard({
                         {on && <Check size={11} strokeWidth={3} />}
                       </span>
                       <span className="min-w-0">
-                        <span className="block text-[13px] font-medium text-text">{opt.label}</span>
+                        <span className="block text-[14px] font-medium text-text">{opt.label}</span>
                         {opt.description && (
                           <span className="mt-0.5 block text-xs leading-snug text-muted">
                             {opt.description}
@@ -167,7 +168,7 @@ function QuestionCard({
                   }
                 }}
                 placeholder={t("Or type your own answer… (Enter to send)")}
-                className="w-full rounded-input border border-border bg-surface px-3 py-2 text-[13px] text-text outline-none placeholder:text-muted focus:border-accent/60"
+                className="w-full rounded-input border border-border bg-surface px-3 py-2 text-[14px] text-text outline-none placeholder:text-muted focus:border-accent/60"
               />
             </div>
           );
@@ -248,6 +249,23 @@ function PermissionCard({
           {t("Allow once")}
         </button>
       </footer>
+      {/* The informed moment to offer full access is right here — the user is
+          living the trade-off. Approves this request AND flips the mode, so
+          this is the last prompt they see. Default mode stays "approve";
+          switching back lives next to the composer. */}
+      <div className="border-t border-border px-4 py-2 text-xs text-muted">
+        {t("Don't want to confirm each time?")}{" "}
+        <button
+          className="text-accent hover:underline"
+          onClick={() => {
+            onReply(permission.requestId, "once");
+            void useRuntimeStore.getState().setApprovalMode("full");
+          }}
+        >
+          {t("Switch to full access")}
+        </button>{" "}
+        {t("— later actions run without asking. You can switch back next to the input box.")}
+      </div>
     </div>
   );
 }

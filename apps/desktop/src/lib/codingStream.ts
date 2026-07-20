@@ -1,4 +1,4 @@
-import type { CodingStepBlock } from "@ai4s/shared";
+import type { CodingStepBlock } from "@fishes/shared";
 
 // Mirrors lib/review.ts: the agent narrates open coding by emitting one
 // ```coding fenced JSON block per segment. Unlike review (one block per turn),

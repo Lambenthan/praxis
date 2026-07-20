@@ -1,9 +1,10 @@
 import { useRef, useState, type KeyboardEvent } from "react";
 import { ChevronDown, CornerDownLeft, NotebookPen, X } from "lucide-react";
-import type { NotebookCell, NotebookInspector as NotebookInspectorT } from "@ai4s/shared";
+import type { NotebookCell, NotebookInspector as NotebookInspectorT } from "@fishes/shared";
 import { CodeViewer } from "@/components/code-viewer/CodeViewer";
 import { PaneTitlebarInset } from "./RightPane";
 import { formatExecResult, kernelExecute } from "@/lib/kernel";
+import { CellOutput } from "@/lib/notebookOutput";
 import { useScrollMemory } from "@/lib/scrollMemory";
 import { useT } from "@/lib/i18n";
 
@@ -98,14 +99,12 @@ export function NotebookInspector({
               <span>{cell.language}</span>
             </div>
             <CodeViewer code={cell.code} language={cell.language} startLine={1} />
-            {cell.output && (
-              <div className="mt-2">
-                <div className="mb-1 text-xs text-muted">&gt; {t("output")}</div>
-                <pre className="whitespace-pre-wrap rounded-input border border-border bg-surface-2 p-3 font-mono text-[12.5px] text-text">
-                  {cell.output}
-                </pre>
-              </div>
-            )}
+            <CellOutput
+              output={cell.output}
+              image={cell.image}
+              html={cell.html}
+              imageAlt={`${t("Cell")} ${cell.index} ${t("figure")}`}
+            />
           </div>
         ))}
       </div>
@@ -120,7 +119,7 @@ export function NotebookInspector({
             onChange={(e) => setExpr(e.target.value)}
             onKeyDown={onKeyDown}
             placeholder={t("Type an expression and press Enter")}
-            className="flex-1 bg-transparent font-mono text-[13px] text-text outline-none placeholder:text-muted"
+            className="flex-1 bg-transparent font-mono text-[14px] text-text outline-none placeholder:text-muted"
             aria-label={t("Notebook expression")}
           />
           <button

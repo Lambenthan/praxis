@@ -1,23 +1,31 @@
 #!/usr/bin/env bash
-# Build a SIGNED Fishes release and generate the updater manifest (latest.json).
+# Local macOS-only build+sign helper — NOT the real multi-platform release path.
 #
-# What it does:
-#   1. Signs the build with your private key (~/.tauri/fishes-updater.key)
-#   2. Produces the .dmg (first-time install) AND the signed .app.tar.gz (update)
-#   3. Writes latest.json — the manifest the running app polls to learn there's
-#      a new version. The signature is embedded, so you upload only three files.
+# THE REAL RELEASE PATH is .github/workflows/build.yml: bump the version, push
+# a `v<version>` tag, and CI builds all 4 targets (macOS aarch64/x86_64,
+# Windows x86_64, Linux) on their native runners, signs each with the
+# TAURI_SIGNING_PRIVATE_KEY secret, and attaches everything to ONE draft
+# GitHub Release. Because every matrix job targets that same release,
+# tauri-action's updater-artifact step (createUpdaterArtifacts: true in
+# tauri.conf.json) automatically merges each platform's signature into a
+# SINGLE combined latest.json on the release — you do not assemble it by
+# hand. Review the draft, then publish it; the running app picks up the new
+# version on its next launch-time check.
 #
-# One-time setup before the FIRST real release:
+# This script exists only to sanity-check the signing/updater pipeline
+# locally on your own Mac (Apple Silicon only) BEFORE pushing a tag — e.g. to
+# confirm the key still works and the update flow triggers in a dev build.
+# Do NOT upload this script's output as if it were a full release: it only
+# covers darwin-aarch64, so an update manifest built from it alone would leave
+# Windows/Linux/Intel-Mac users unable to auto-update.
+#
+# One-time setup:
 #   - In apps/desktop/src-tauri/tauri.conf.json, replace OWNER/REPO in
 #     plugins.updater.endpoints with your GitHub repo.
 #   - Keep ~/.tauri/fishes-updater.key secret and backed up. Lose it and you can
 #     never ship a trusted update again.
 #
-# Each release:
-#   1. Bump "version" in apps/desktop/src-tauri/tauri.conf.json.
-#   2. OWNER=you REPO=fishes NOTES="what changed" scripts/release/release.sh
-#   3. Create a GitHub Release tagged v<version> and upload the three files it
-#      prints. The app picks it up on the next launch.
+# Usage: OWNER=you REPO=fishes NOTES="what changed" scripts/release/release.sh
 set -euo pipefail
 
 KEY="${HOME}/.tauri/fishes-updater.key"
@@ -55,8 +63,9 @@ doc = {
     "notes": notes,
     "pub_date": pub,
     "platforms": {
-        # Apple Silicon. Add "darwin-x86_64" / "windows-x86_64" here when those
-        # targets are built and signed.
+        # Apple Silicon only — this is a LOCAL sanity build, not the real
+        # multi-platform release (see the file header). CI's tauri-action
+        # merges all 4 platforms into one latest.json automatically.
         "darwin-aarch64": {
             "signature": open(sigpath).read().strip(),
             "url": f"https://github.com/{owner}/{repo}/releases/download/v{version}/{asset}",
@@ -67,10 +76,11 @@ print(json.dumps(doc, indent=2))
 PY
 
 echo ""
-echo "✓ Done. Create a GitHub Release tagged v$VERSION on $OWNER/$REPO and upload:"
-echo "    $DESKTOP/$BUNDLE/macos/$ASSET      ← the update package"
-echo "    $DESKTOP/$BUNDLE/latest.json        ← the update manifest"
-echo "    $DESKTOP/$DMG   ← first-time install"
+echo "✓ Local sanity build done (darwin-aarch64 only):"
+echo "    $DESKTOP/$BUNDLE/macos/$ASSET"
+echo "    $DESKTOP/$BUNDLE/latest.json"
+echo "    $DESKTOP/$DMG"
 echo ""
-echo "The running app checks $OWNER/$REPO's latest release on launch and will"
-echo "offer this version in the in-app update dialog."
+echo "This is NOT the release. For a real multi-platform release: bump the"
+echo "version, push a v\$VERSION tag, let CI build+sign all 4 targets and"
+echo "auto-merge latest.json into one draft Release, then review and publish it."

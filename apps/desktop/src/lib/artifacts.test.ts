@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { ToolUpdatedEvent } from "@ai4s/sdk";
-import type { ArtifactInspector, ThreadBlock } from "@ai4s/shared";
+import type { ToolUpdatedEvent } from "@fishes/sdk";
+import type { ArtifactInspector, ThreadBlock } from "@fishes/shared";
 import {
   artifactBlockToInspector,
   deriveArtifact,

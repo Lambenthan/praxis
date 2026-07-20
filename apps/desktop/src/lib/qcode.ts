@@ -226,3 +226,41 @@ export function serializeQCode(doc: QCodeDoc): string {
     2,
   );
 }
+
+/** Adopted annotations — the researcher's kept coding decisions (status defaults
+ *  to "adopted" for legacy files), each span-valid so its quote is real, never
+ *  invented. These are what the exports below carry out of the workbench. */
+export function adoptedAnnotations(doc: QCodeDoc): QAnnotation[] {
+  return doc.annotations.filter(
+    (a) => (a.status ?? "adopted") === "adopted" && spanValid(doc, a),
+  );
+}
+
+/** CSV-escape one field (RFC 4180): wrap in quotes when it holds a comma, quote,
+ *  or newline, doubling any interior quote. */
+function csvCell(s: string): string {
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+const toCsv = (rows: string[][]): string =>
+  rows.map((r) => r.map(csvCell).join(",")).join("\n") + "\n";
+
+/** The codebook as CSV: every code, its description, and how many adopted
+ *  excerpts it covers — the takeaway table a researcher pastes into a paper. */
+export function codebookCsv(doc: QCodeDoc): string {
+  const count: Record<string, number> = {};
+  for (const a of adoptedAnnotations(doc)) count[a.code] = (count[a.code] ?? 0) + 1;
+  const rows = [["code", "description", "count"]];
+  for (const c of doc.codes) rows.push([c.name, c.description ?? "", String(count[c.name] ?? 0)]);
+  return toCsv(rows);
+}
+
+/** Adopted coded excerpts as CSV: source, code, span, the verbatim quote (sliced
+ *  from the source), and any memo — one row per kept coding decision. */
+export function excerptsCsv(doc: QCodeDoc): string {
+  const rows = [["source", "code", "start", "end", "quote", "memo"]];
+  for (const a of adoptedAnnotations(doc)) {
+    rows.push([a.source, a.code, String(a.start), String(a.end), quoteOf(doc, a), a.memo ?? ""]);
+  }
+  return toCsv(rows);
+}

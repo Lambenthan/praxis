@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Compass } from "lucide-react";
-import type { ArtifactBlock } from "@ai4s/shared";
+import type { ArtifactBlock } from "@fishes/shared";
 import { readArtifact } from "@/lib/artifactFile";
 import { cn } from "@/lib/cn";
 import { useT } from "@/lib/i18n";

@@ -1,7 +1,20 @@
 import { renderHook } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { UIEvent } from "react";
 import { useStickToBottom } from "./stickToBottom";
+
+// The follow write is coalesced through requestAnimationFrame — run it
+// synchronously here so the assertions below stay direct.
+beforeEach(() => {
+  vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
+    cb(0);
+    return 1;
+  });
+  vi.stubGlobal("cancelAnimationFrame", () => {});
+});
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 /** A fake scroll container: 1000 tall, 300 visible → bottom is scrollTop 700. */
 function fakeEl(scrollTop = 0) {

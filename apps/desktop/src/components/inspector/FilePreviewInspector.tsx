@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Code2, Eye, ExternalLink, FileSearch, History, Loader2, X } from "lucide-react";
-import type { FilePreviewInspector as FilePreviewInspectorT, FileRoot } from "@ai4s/shared";
+import { Code2, Download, Eye, ExternalLink, FileQuestion, FileSearch, History, Loader2, X } from "lucide-react";
+import type { FilePreviewInspector as FilePreviewInspectorT, FileRoot } from "@fishes/shared";
 import { previewKindForName, type PreviewKind } from "@/lib/artifacts";
 import {
   base64ToBytes,
@@ -11,6 +11,8 @@ import {
   type LargeFilePointer,
 } from "@/lib/artifactFile";
 import { parseTableFile } from "@/lib/csv";
+import { saveBytesWithFeedback, saveTextWithFeedback } from "@/lib/download";
+import { toast } from "@/lib/toast";
 import { CodeViewer } from "@/components/code-viewer/CodeViewer";
 import { MarkdownViewer } from "@/components/markdown-viewer/MarkdownViewer";
 import { ProvenancePanel } from "./ProvenancePanel";
@@ -29,6 +31,8 @@ import { QCodeWorkbench } from "@/components/qcode/QCodeWorkbench";
 import { QRegWorkbench } from "@/components/qreg/QRegWorkbench";
 import { AnomalyMapView } from "./AnomalyMapView";
 import { PhaseView } from "./PhaseView";
+import { WikiGraphView } from "@/components/wiki-graph/WikiGraphView";
+import { PlanPreview } from "@/components/thread/PlanPanel";
 import { useScrollMemory } from "@/lib/scrollMemory";
 import { cn } from "@/lib/cn";
 import { PaneTitlebarInset } from "./RightPane";
@@ -57,7 +61,7 @@ export function FilePreviewInspector({
   const needsText =
     kind === "table" || kind === "text" || kind === "html" || kind === "markdown" ||
     kind === "molecule" || kind === "genome" || kind === "qcode" || kind === "qreg" ||
-    kind === "anomaly" || kind === "phase";
+    kind === "anomaly" || kind === "phase" || kind === "wikigraph" || kind === "plan";
   const needsBytes =
     kind === "docx" || kind === "xlsx" || kind === "pptx" || kind === "mesh" ||
     kind === "fits" || kind === "dos" || kind === "bands";
@@ -120,7 +124,8 @@ export function FilePreviewInspector({
   }, [data.path, data.content, data.root, kind, needsUrl, needsText, needsBytes]);
 
   const canToggle =
-    kind === "html" || kind === "markdown" || kind === "molecule" || kind === "genome";
+    kind === "html" || kind === "markdown" || kind === "molecule" || kind === "genome" ||
+    kind === "plan";
 
   // Where the user was in this file, restored when they come back to it —
   // history browsing keeps its own offset so the two don't clobber each other.
@@ -130,6 +135,22 @@ export function FilePreviewInspector({
     showHistory ? `history:${data.path}` : `file:${data.path}`,
     showHistory || !loading,
   );
+
+  // Our own Download — a real native "Save As" writing the raw file bytes. The
+  // webview's built-in PDF/image viewer shows its own download button inside the
+  // <iframe>/<img>, but that one does nothing in a Tauri webview, so the header
+  // carries a working one for every file.
+  const downloadFile = async () => {
+    try {
+      const f = await readArtifact(data.path, data.root);
+      if (!f) return;
+      if (f.encoding === "base64")
+        await saveBytesWithFeedback(data.filename, new Uint8Array(base64ToBytes(f.data)));
+      else await saveTextWithFeedback(data.filename, f.data);
+    } catch (e) {
+      toast.error(`${t("Could not download")} ${data.filename}: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  };
 
   return (
     <div className="flex h-full flex-col">
@@ -159,6 +180,14 @@ export function FilePreviewInspector({
         </button>
         <button
           className="text-text hover:opacity-60"
+          aria-label={t("Download")}
+          title={t("Download — save a copy")}
+          onClick={() => void downloadFile()}
+        >
+          <Download size={14} strokeWidth={1.5} />
+        </button>
+        <button
+          className="text-text hover:opacity-60"
           aria-label={t("Open externally")}
           title={t("Open in the default app")}
           onClick={() => void openArtifactExternally(data.path, data.root)}
@@ -173,11 +202,7 @@ export function FilePreviewInspector({
 
       <div ref={scrollRef} onScroll={onScroll} className="min-h-0 flex-1 overflow-auto bg-surface-2">
         {showHistory && <ProvenancePanel path={data.path} language={data.language} />}
-        {!showHistory && loading && (
-          <div className="flex items-center gap-2 p-4 text-sm text-muted">
-            <Loader2 size={15} className="animate-spin" /> {t("Loading")} {data.filename}…
-          </div>
-        )}
+        {!showHistory && loading && <PreviewLoading />}
         {!showHistory && !loading && error && (
           <PreviewError
             error={error}
@@ -196,6 +221,7 @@ export function FilePreviewInspector({
             showCode={tab === "code"}
             filename={data.filename}
             path={data.path}
+            root={data.root}
             language={data.language}
           />
         )}
@@ -212,6 +238,7 @@ function Body({
   showCode,
   filename,
   path,
+  root,
   language,
 }: {
   kind: PreviewKind;
@@ -221,9 +248,31 @@ function Body({
   showCode: boolean;
   filename: string;
   path: string;
+  root?: FileRoot;
   language?: string;
 }) {
   const t = useT();
+  if (kind === "wikigraph") {
+    return text !== null ? (
+      <WikiGraphView path={path} text={text} root={root} />
+    ) : (
+      <Note text={t("Preview is available in the desktop app.")} />
+    );
+  }
+  if (kind === "plan") {
+    // plan.json / plan-status.json render as one plan-as-report panel; the
+    // Preview/Code toggle in the header is the view-raw escape.
+    if (showCode) {
+      return text !== null ? (
+        <div className="p-3">
+          <CodeViewer code={text} language="json" />
+        </div>
+      ) : (
+        <Note text={t("Source is available in the desktop app.")} />
+      );
+    }
+    return <PlanPreview path={path} text={text} root={root} />;
+  }
   if (kind === "docx" || kind === "xlsx" || kind === "pptx") {
     // Office views scroll internally (the outer pane never does), so they
     // carry their own scroll memory, keyed apart from the outer container's.
@@ -394,8 +443,27 @@ function Body({
   );
 }
 
+/** Centered ring-spinner while a preview loads (CS's preview loading grammar:
+ *  a spinner centered in an h-64 box, not an inline one-liner). */
+function PreviewLoading() {
+  const t = useT();
+  return (
+    <div className="flex h-64 items-center justify-center" role="status" aria-live="polite">
+      <Loader2 size={26} strokeWidth={1.5} className="animate-spin text-text-400" />
+      <span className="sr-only">{t("Loading")}</span>
+    </div>
+  );
+}
+
+/** Empty/unavailable preview state: a centered icon + line in an h-64 box,
+ *  matching CS's structured empty states over the old bare muted one-liner. */
 function Note({ text }: { text: string }) {
-  return <div className="p-4 text-sm text-muted">{text}</div>;
+  return (
+    <div className="flex h-64 flex-col items-center justify-center gap-2 px-6 text-center">
+      <FileQuestion size={28} strokeWidth={1.5} className="text-text-400" />
+      <div className="max-w-[420px] text-[13px] leading-relaxed text-text-300">{text}</div>
+    </div>
+  );
 }
 
 /** qcode file: toggle between the read-only QCodeView and the interactive
@@ -411,7 +479,7 @@ function QCodeSurface({ filename, text }: { filename: string; text: string }) {
         <button
           onClick={() => setAdjudicate(false)}
           className={cn(
-            "rounded-input px-2 py-0.5 text-[11px]",
+            "rounded-input px-2 py-0.5 text-[12px]",
             !adjudicate ? "bg-surface-2 text-text" : "text-muted hover:text-text",
           )}
         >
@@ -420,7 +488,7 @@ function QCodeSurface({ filename, text }: { filename: string; text: string }) {
         <button
           onClick={() => setAdjudicate(true)}
           className={cn(
-            "rounded-input px-2 py-0.5 text-[11px]",
+            "rounded-input px-2 py-0.5 text-[12px]",
             adjudicate ? "bg-surface-2 text-text" : "text-muted hover:text-text",
           )}
         >
@@ -517,7 +585,7 @@ export function PreviewError({
         <div className="flex flex-wrap gap-2">
           {path && (
             <button
-              className="inline-flex items-center gap-1.5 rounded-input border border-border bg-surface-2 px-2.5 py-1.5 text-[13px] text-text hover:bg-surface disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 rounded-input border border-border bg-surface-2 px-2.5 py-1.5 text-[14px] text-text hover:bg-surface disabled:opacity-60"
               onClick={() => void inspect()}
               disabled={probing}
             >
@@ -526,13 +594,13 @@ export function PreviewError({
             </button>
           )}
           <button
-            className="inline-flex items-center gap-1.5 rounded-input border border-border bg-surface-2 px-2.5 py-1.5 text-[13px] text-text hover:bg-surface"
+            className="inline-flex items-center gap-1.5 rounded-input border border-border bg-surface-2 px-2.5 py-1.5 text-[14px] text-text hover:bg-surface"
             onClick={onOpenExternally}
           >
             <ExternalLink size={13} /> {t("Open externally")}
           </button>
         </div>
-        {probeError && <div className="mt-3 text-[13px] text-error">{probeError}</div>}
+        {probeError && <div className="mt-3 text-[14px] text-error">{probeError}</div>}
         {pointer && <LargeFilePointerPanel p={pointer} />}
       </div>
     </div>
@@ -542,7 +610,7 @@ export function PreviewError({
 /** Render the probe's memory pointer as a compact, readable fact sheet. */
 function LargeFilePointerPanel({ p }: { p: LargeFilePointer }) {
   const t = useT();
-  if (p.error) return <div className="mt-3 text-[13px] text-error">{p.error}</div>;
+  if (p.error) return <div className="mt-3 text-[14px] text-error">{p.error}</div>;
   const fmt = (n: number) => n.toLocaleString("en-US");
   const rows: [string, string][] = [];
   if (p.format) rows.push([t("Format"), p.format]);
@@ -558,9 +626,9 @@ function LargeFilePointerPanel({ p }: { p: LargeFilePointer }) {
 
   return (
     <div className="mt-3 rounded-input border border-border bg-surface-2 p-3">
-      {p.hint && <div className="mb-2 text-[13px] text-text">{p.hint}</div>}
+      {p.hint && <div className="mb-2 text-[14px] text-text">{p.hint}</div>}
       {rows.length > 0 && (
-        <dl className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 text-[12.5px]">
+        <dl className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 text-[14px]">
           {rows.map(([k, v]) => (
             <div key={k} className="contents">
               <dt className="text-muted">{k}</dt>
@@ -574,7 +642,7 @@ function LargeFilePointerPanel({ p }: { p: LargeFilePointer }) {
           <div className="mb-1 text-[12px] text-muted">{t("Schema")}</div>
           <div className="flex flex-wrap gap-1">
             {p.columns.slice(0, 40).map((c) => (
-              <span key={c.name} className="rounded bg-surface px-1.5 py-0.5 font-mono text-[11.5px] text-text">
+              <span key={c.name} className="rounded bg-surface px-1.5 py-0.5 font-mono text-[12px] text-text">
                 {c.name} <span className="text-muted">{c.dtype}</span>
               </span>
             ))}
@@ -584,7 +652,7 @@ function LargeFilePointerPanel({ p }: { p: LargeFilePointer }) {
       {p.datasets && p.datasets.length > 0 && (
         <div className="mt-2">
           <div className="mb-1 text-[12px] text-muted">{t("Datasets")}</div>
-          <div className="flex flex-col gap-0.5 font-mono text-[11.5px] text-text">
+          <div className="flex flex-col gap-0.5 font-mono text-[12px] text-text">
             {p.datasets.slice(0, 20).map((d) => (
               <span key={d.path}>{d.path} <span className="text-muted">[{d.shape.join("×")}] {d.dtype}</span></span>
             ))}
@@ -594,10 +662,10 @@ function LargeFilePointerPanel({ p }: { p: LargeFilePointer }) {
       {p.sample_ids && p.sample_ids.length > 0 && (
         <div className="mt-2">
           <div className="mb-1 text-[12px] text-muted">{t("Sample ids")}</div>
-          <div className="font-mono text-[11.5px] text-text">{p.sample_ids.slice(0, 5).join(", ")}</div>
+          <div className="font-mono text-[12px] text-text">{p.sample_ids.slice(0, 5).join(", ")}</div>
         </div>
       )}
-      {p.note && <div className="mt-2 text-[11.5px] italic text-muted">{p.note}</div>}
+      {p.note && <div className="mt-2 text-[12px] italic text-muted">{p.note}</div>}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { Check, ChevronLeft, ChevronRight, Download, X } from "lucide-react";
-import type { ArtifactInspector as ArtifactInspectorT, ArtifactTab } from "@ai4s/shared";
+import type { ArtifactInspector as ArtifactInspectorT, ArtifactTab } from "@fishes/shared";
 import { useScrollMemory } from "@/lib/scrollMemory";
 import { cn } from "@/lib/cn";
 import { CodeViewer } from "@/components/code-viewer/CodeViewer";
@@ -148,7 +148,7 @@ export function ArtifactInspector({
 
 function Pre({ text }: { text: string }) {
   return (
-    <pre className="whitespace-pre-wrap rounded-input border border-border bg-surface-2 p-3 font-mono text-[12.5px] text-text">
+    <pre className="whitespace-pre-wrap rounded-input border border-border bg-surface-2 p-3 font-mono text-[14px] text-text">
       {text}
     </pre>
   );

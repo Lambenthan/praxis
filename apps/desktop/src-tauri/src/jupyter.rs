@@ -60,23 +60,31 @@ fn kill_orphan_jupyter(app: &AppHandle) {
         let _ = std::process::Command::new("pkill").args(["-9", "-f", &pattern]).output();
         std::thread::sleep(std::time::Duration::from_millis(400));
     }
-    // Windows: taskkill the recorded PID, filtered to python.exe so a recycled
-    // PID belonging to some other process is spared.
+    // Windows: taskkill the recorded PID and its whole tree (/T). The recorded
+    // PID is the `jupyter-lab.exe` console-script launcher, which CreateProcess-es
+    // the real python child — so /T is what actually frees the port. We do NOT
+    // filter on IMAGENAME (the launcher is jupyter-lab.exe, not python.exe, so a
+    // python filter matched nothing and left the orphan running); instead we
+    // verify the PID's image is one of ours before killing, to survive PID reuse.
     #[cfg(windows)]
     if let Ok(path) = pid_path(app) {
         if let Ok(pid) = std::fs::read_to_string(&path).map(|s| s.trim().to_string()) {
             if !pid.is_empty() && pid.chars().all(|c| c.is_ascii_digit()) {
-                let _ = crate::runtime::quiet_command("taskkill")
-                    .args([
-                        "/FI",
-                        &format!("PID eq {pid}"),
-                        "/FI",
-                        "IMAGENAME eq python.exe",
-                        "/F",
-                        "/T",
-                    ])
-                    .output();
-                std::thread::sleep(std::time::Duration::from_millis(400));
+                let owned = crate::runtime::quiet_command("tasklist")
+                    .args(["/FI", &format!("PID eq {pid}"), "/FO", "CSV", "/NH"])
+                    .output()
+                    .ok()
+                    .map(|o| {
+                        let s = String::from_utf8_lossy(&o.stdout).to_lowercase();
+                        s.contains("jupyter-lab.exe") || s.contains("python.exe")
+                    })
+                    .unwrap_or(false);
+                if owned {
+                    let _ = crate::runtime::quiet_command("taskkill")
+                        .args(["/PID", &pid, "/F", "/T"])
+                        .output();
+                    std::thread::sleep(std::time::Duration::from_millis(400));
+                }
             }
         }
     }
@@ -149,11 +157,19 @@ pub async fn setup_jupyter(app: AppHandle) -> Result<(), String> {
     let dir = env_dir(&app)?;
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
 
-    let venv = app
+    // Prefer the bundled interpreter (offline, zero download); fall back to
+    // uv's "3.12" download only when the app shipped without it.
+    let py = crate::runtime::bundled_python(&app).unwrap_or_else(|| "3.12".to_string());
+    let mut venv_cmd = app
         .shell()
         .sidecar("uv")
         .map_err(|e| format!("uv sidecar not found: {e}"))?
-        .args(["venv", &dir.to_string_lossy(), "--python", "3.12", "--allow-existing"])
+        .args(["venv", &dir.to_string_lossy(), "--python", &py, "--allow-existing"]);
+    // Domestic mirrors on Chinese-locale systems (see runtime::china_mirror_env).
+    for (k, v) in crate::runtime::china_mirror_env() {
+        venv_cmd = venv_cmd.env(k, v);
+    }
+    let venv = venv_cmd
         .output()
         .await
         .map_err(|e| format!("uv venv failed to run: {e}"))?;
@@ -169,11 +185,15 @@ pub async fn setup_jupyter(app: AppHandle) -> Result<(), String> {
         py.to_string_lossy().to_string(),
     ];
     args.extend(PIP_SPEC.iter().map(|s| s.to_string()));
-    let install = app
+    let mut install_cmd = app
         .shell()
         .sidecar("uv")
         .map_err(|e| format!("uv sidecar not found: {e}"))?
-        .args(args)
+        .args(args);
+    for (k, v) in crate::runtime::china_mirror_env() {
+        install_cmd = install_cmd.env(k, v);
+    }
+    let install = install_cmd
         .output()
         .await
         .map_err(|e| format!("uv pip install failed to run: {e}"))?;

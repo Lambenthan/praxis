@@ -45,14 +45,14 @@ describe("FilesPage", () => {
     expect(screen.getByTestId("nb")).toHaveTextContent("nb:run.ipynb");
   });
 
-  it("navigates into a folder and back via the breadcrumb", async () => {
+  it("navigates into a folder and back up one level", async () => {
     render(<FilesPage />);
     await userEvent.click(await screen.findByText("data"));
     expect(await screen.findByText("genes.bed")).toBeInTheDocument();
     // The page is GLOBAL: every listing resolves in the base folder tree.
-    expect(listDir).toHaveBeenCalledWith("data", "base");
+    expect(listDir).toHaveBeenCalledWith("data", "workspace");
 
-    await userEvent.click(screen.getByRole("button", { name: "Workspace" }));
+    await userEvent.click(screen.getByRole("button", { name: "Up one level" }));
     await waitFor(() => expect(screen.getByText("figure.png")).toBeInTheDocument());
   });
 });

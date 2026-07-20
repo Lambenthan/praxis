@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import type { ArtifactInspector as ArtifactInspectorT } from "@ai4s/shared";
+import type { ArtifactInspector as ArtifactInspectorT } from "@fishes/shared";
 import { ArtifactInspector } from "./ArtifactInspector";
 
 const data: ArtifactInspectorT = {

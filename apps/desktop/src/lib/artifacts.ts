@@ -1,7 +1,7 @@
 // Turn the agent's file-writing tool calls into traceable artifacts.
 // Pure and transport-agnostic so it can be unit-tested without a live runtime.
 
-import type { ToolUpdatedEvent } from "@ai4s/sdk";
+import type { ToolUpdatedEvent } from "@fishes/sdk";
 import type {
   ArtifactBlock,
   ArtifactInspector,
@@ -10,7 +10,7 @@ import type {
   FilePreviewInspector,
   NotebookFileInspector,
   ThreadBlock,
-} from "@ai4s/shared";
+} from "@fishes/shared";
 
 const EXT_KIND: Record<string, ArtifactKind> = {
   png: "figure", jpg: "figure", jpeg: "figure", gif: "figure", webp: "figure", svg: "figure",
@@ -116,7 +116,9 @@ export type PreviewKind =
   | "qreg"
   | "anomaly"
   | "bands"
-  | "phase";
+  | "phase"
+  | "wikigraph"
+  | "plan";
 
 /** 3D mesh / CAD formats rendered by the three.js viewer. */
 export const MESH_EXTS = ["stl", "obj", "ply", "gltf", "glb"];
@@ -156,6 +158,10 @@ export function previewKindForName(filename: string): PreviewKind {
   const base = (filename.split(/[\\/]/).pop() ?? filename).toLowerCase();
   if (base === "doscar" || base.startsWith("doscar.")) return "dos";
   if (base === "eigenval" || base.startsWith("eigenval.")) return "bands";
+  // The literature wiki's knowledge graph (wiki/graph/edges.jsonl).
+  if (base === "edges.jsonl") return "wikigraph";
+  // The agent's task plan + its status overlay render as one report.
+  if (base === "plan.json" || base === "plan-status.json") return "plan";
   return previewKind(extOf(filename));
 }
 
@@ -172,6 +178,7 @@ export function fileInspectorFromBlock(
     artifact: a.artifact,
     language: a.language ?? EXT_LANG[extOf(a.filename)],
     content: a.content,
+    root: a.root,
   };
 }
 

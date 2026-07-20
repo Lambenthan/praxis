@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import type { FigureBlock as FigureBlockT } from "@ai4s/shared";
+import type { FigureBlock as FigureBlockT } from "@fishes/shared";
 import { FigureBlock } from "./FigureBlock";
 
 const block: FigureBlockT = {

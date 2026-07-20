@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ToolUpdatedEvent } from "@ai4s/sdk";
+import type { ToolUpdatedEvent } from "@fishes/sdk";
 import { provenanceInputFromEvent } from "./provenance";
 
 const write = (over: Partial<ToolUpdatedEvent> = {}): ToolUpdatedEvent => ({

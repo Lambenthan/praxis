@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ChevronRight } from "lucide-react";
-import type { StepSummaryBlock } from "@ai4s/shared";
+import type { StepSummaryBlock } from "@fishes/shared";
 import { cn } from "@/lib/cn";
 import { useT } from "@/lib/i18n";
 

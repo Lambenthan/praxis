@@ -1,13 +1,13 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Fishes",
-  "version": "0.1.2",
-  "identifier": "com.ai4s.workbench",
+  "version": "0.3.0",
+  "identifier": "com.fishes.app",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
-    "beforeDevCommand": "pnpm --filter @ai4s/desktop exec vite --port 5173 --strictPort",
-    "beforeBuildCommand": "pnpm --filter @ai4s/desktop build"
+    "beforeDevCommand": "pnpm --filter @fishes/desktop exec vite --port 5173 --strictPort",
+    "beforeBuildCommand": "pnpm --filter @fishes/desktop build"
   },
   "app": {
     "windows": [
@@ -34,10 +34,12 @@
     "targets": "all",
     "externalBin": [
       "binaries/opencode",
-      "binaries/uv"
+      "binaries/uv",
+      "binaries/rg"
     ],
     "macOS": {
-      "minimumSystemVersion": "13.0"
+      "minimumSystemVersion": "13.0",
+      "signingIdentity": "-"
     },
     "resources": {
       "../../../runtime/skills/external/ai4s-skills": "skills/",
@@ -45,7 +47,9 @@
       "../../../runtime/skills/core": "skills-core/",
       "../../../runtime/agents": "agents/",
       "../../../runtime/plugins": "plugins/",
-      "../../../runtime/rules": "rules/"
+      "../../../runtime/rules": "rules/",
+      "../../../examples": "examples/",
+      "python-runtime": "python-runtime/"
     },
     "icon": [
       "icons/32x32.png",
@@ -54,12 +58,18 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "createUpdaterArtifacts": true
+    "createUpdaterArtifacts": true,
+    "windows": {
+      "nsis": {
+        "installerIcon": "icons/icon.ico"
+      }
+    }
   },
   "plugins": {
     "updater": {
       "endpoints": [
-        "https://github.com/Lambenthan/fishes/releases/latest/download/latest.json"
+        "https://fishes-updates-chaw.oss-cn-shanghai.aliyuncs.com/latest.json",
+        "https://praxis-updates-chaw.oss-cn-shanghai.aliyuncs.com/latest.json"
       ],
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDIxQjAzQkE2MzQxMThENEUKUldST2pSRTBwanV3SWQrQkcydjBpaGwyVG1ITjhFRW8wR0xSbDNpeEFwSEhPNEpWaDRncnNMR2YK"
     }

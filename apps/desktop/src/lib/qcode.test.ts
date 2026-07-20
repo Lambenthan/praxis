@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   adoptAnnotation,
+  adoptedAnnotations,
   candidatesOf,
+  codebookCsv,
   codeColor,
+  excerptsCsv,
   parseQCode,
   quoteOf,
   rejectAnnotation,
@@ -199,5 +202,47 @@ describe("serializeQCode", () => {
     expect(reparsed.annotations[1].status).toBe("adopted");
     expect(reparsed.annotations[1].provenance).toBe("human_adopted");
     expect(reparsed.warnings).toEqual([]);
+  });
+});
+
+describe("exports (codebook + excerpts CSV)", () => {
+  // A doc mixing an adopted, a candidate (pending), and a plain (legacy=adopted)
+  // annotation, plus a quote containing a comma so CSV escaping is exercised.
+  const D = JSON.stringify({
+    sources: [{ id: "i1", text: "I trust the doctor, but fear the cost." }],
+    codes: [
+      { name: "trust", description: "belief in the clinician" },
+      { name: "fear", description: "worry, esp. financial" },
+      { name: "unused" },
+    ],
+    annotations: [
+      { source: "i1", code: "trust", start: 2, end: 18, status: "adopted" }, // "trust the doctor"
+      { source: "i1", code: "fear", start: 24, end: 37 }, // legacy → adopted; "fear the cost"
+      { source: "i1", code: "trust", start: 0, end: 1, status: "candidate" }, // pending → excluded
+    ],
+  });
+
+  it("adoptedAnnotations keeps adopted + legacy, drops candidates", () => {
+    const doc = parseQCode(D);
+    const kept = adoptedAnnotations(doc);
+    expect(kept).toHaveLength(2);
+    expect(kept.every((a) => (a.status ?? "adopted") === "adopted")).toBe(true);
+  });
+
+  it("codebookCsv lists every code with its adopted count (0 for unused)", () => {
+    const rows = codebookCsv(parseQCode(D)).trim().split("\n");
+    expect(rows[0]).toBe("code,description,count");
+    expect(rows).toContain('trust,belief in the clinician,1');
+    expect(rows).toContain('fear,"worry, esp. financial",1'); // comma → quoted
+    expect(rows).toContain("unused,,0");
+  });
+
+  it("excerptsCsv carries verbatim quotes for adopted annotations only", () => {
+    const csv = excerptsCsv(parseQCode(D));
+    const rows = csv.trim().split("\n");
+    expect(rows[0]).toBe("source,code,start,end,quote,memo");
+    expect(rows).toHaveLength(3); // header + 2 adopted (candidate excluded)
+    expect(csv).toContain("trust the doctor");
+    expect(csv).toContain("fear the cost");
   });
 });

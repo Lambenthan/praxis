@@ -17,8 +17,8 @@ Responsibilities:
 ```text
 macOS:   ~/Library/Application Support/AI4S Workbench/
 Windows: %APPDATA%/AI4S Workbench/
-generic: ~/.ai4s-workbench/
-  config/  runtime/{opencode,python,node}/  profiles/ai4s-workbench/
+generic: ~/.fishes/
+  config/  runtime/{opencode,python,node}/  profiles/fishes/
   workspaces/  logs/  cache/  secrets/
 ```
 

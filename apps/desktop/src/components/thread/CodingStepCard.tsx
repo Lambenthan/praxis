@@ -1,4 +1,4 @@
-import type { CodingStepBlock } from "@ai4s/shared";
+import type { CodingStepBlock } from "@fishes/shared";
 
 /** Deterministic per-code color from the shared --series-1..8 palette, so a
  *  given code keeps the same hue everywhere it appears in the live feed. */
@@ -30,9 +30,9 @@ export function CodingStepCard({ block }: { block: CodingStepBlock }) {
       />
       <div className="mb-1 flex items-baseline gap-1.5">
         <span className="text-[12px] font-semibold tracking-wide text-text">{block.code}</span>
-        {block.source && <span className="truncate text-[10.5px] text-muted">{block.source}</span>}
+        {block.source && <span className="truncate text-[11px] text-muted">{block.source}</span>}
       </div>
-      <blockquote className="font-serif text-[13.5px] leading-[1.75] text-text">
+      <blockquote className="font-serif text-[14px] leading-[1.75] text-text">
         “{block.quote}”
       </blockquote>
       {block.memo && (

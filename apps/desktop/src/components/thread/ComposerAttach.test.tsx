@@ -7,14 +7,21 @@ vi.mock("@/lib/tauri", () => ({
   isTauri: true,
   addFilesToWorkspace: vi.fn(async () => ["data.csv"]),
   addTextToWorkspace: vi.fn(async () => "pasted.txt"),
+  pickFolder: vi.fn(async () => null),
 }));
+
+// The paperclip is now inside the "+" add menu — open it, then pick "Add files".
+const openAddMenuAndPickFiles = () => {
+  fireEvent.click(screen.getByLabelText("Add"));
+  fireEvent.mouseDown(screen.getByText("Add files"));
+};
 
 describe("Composer attachments (desktop)", () => {
   it("adds picked files as removable chips and sends them as a file note", async () => {
     const onSend = vi.fn();
     render(<Composer onSend={onSend} />);
 
-    fireEvent.click(screen.getByLabelText("Add files"));
+    openAddMenuAndPickFiles();
     await waitFor(() => expect(screen.getByText("data.csv")).toBeTruthy());
 
     // Chip is outside the textarea — typing text is independent of the file.
@@ -31,7 +38,7 @@ describe("Composer attachments (desktop)", () => {
 
   it("removes a chip via its X button without touching the text", async () => {
     render(<Composer onSend={vi.fn()} />);
-    fireEvent.click(screen.getByLabelText("Add files"));
+    openAddMenuAndPickFiles();
     await waitFor(() => expect(screen.getByText("data.csv")).toBeTruthy());
 
     fireEvent.click(screen.getByLabelText("Remove data.csv"));
